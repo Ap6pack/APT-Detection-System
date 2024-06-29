@@ -35,8 +35,8 @@ This APT detection system consists of the following components:
 1. **Clone the Repository**
 
     ```sh
-    git clone https://github.com/your-username/APT_Detection_System.git
-    cd APT_Detection_System
+    git clone https://github.com/Ap6pack/APT-Detection-System.git
+    cd APT-Detection-System
     ```
 
 2. **Create and Activate a Virtual Environment**
