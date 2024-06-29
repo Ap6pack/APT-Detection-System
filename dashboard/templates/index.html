@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>APT Detection Dashboard</title>
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+</head>
+<body>
+    <h1>Welcome to the APT Detection Dashboard</h1>
+    <p>This is where you can monitor the system.</p>
+
+    <h2>Matplotlib Plot</h2>
+    <img src="data:image/png;base64, {{ plot_url }}" alt="Matplotlib Plot">
+
+    <h2>Plotly Plot</h2>
+    <div id="plotly-div"></div>
+    <script>
+        fetch('/plotly')
+        .then(response => response.json())
+        .then(data => {
+            var plotDiv = document.getElementById('plotly-div');
+            Plotly.react(plotDiv, data.data, data.layout);
+        });
+    </script>
+</body>
+</html>

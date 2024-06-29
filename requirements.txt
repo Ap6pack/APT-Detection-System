@@ -1,0 +1,12 @@
+numpy
+pandas
+scikit-learn
+lightgbm
+tensorflow
+keras
+flask
+kafka-python
+matplotlib
+plotly
+imbalanced-learn
+tensorrt
