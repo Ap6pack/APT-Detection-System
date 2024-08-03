@@ -98,7 +98,7 @@ This APT detection system consists of the following components:
 7. **Create Kafka Topic**
 
     ```sh
-    bin/kafka-topics.sh --create --topic apt_topic --bootstrap-server localhost:9092 --partitions 1 --replication-factor 1
+    kafka_2.13-3.8.0/bin/kafka-topics.sh --create --topic apt_topic --bootstrap-server localhost:9092 --partitions 1 --replication-factor 1
     ```
 
 ## Usage
