@@ -27,6 +27,7 @@ This APT detection system consists of the following components:
 ### Prerequisites
 
 - Python 3.8 or higher
+- Java Development Kit (JDK) 11 or higher
 - Kafka
 - Zookeeper
 
@@ -52,11 +53,39 @@ This APT detection system consists of the following components:
     pip install -r requirements.txt
     ```
 
-4. **Download Kafka**
+4. **Install Java (if not already installed)**
+
+    #### On Ubuntu/Debian
+
+    ```sh
+    sudo apt update
+    sudo apt install openjdk-11-jdk
+    java -version
+    ```
+
+    #### On CentOS/RHEL
+
+    ```sh
+    sudo yum install java-11-openjdk-devel
+    java -version
+    ```
+
+    #### On macOS
+
+    ```sh
+    brew update
+    brew install openjdk@11
+    echo 'export PATH="/usr/local/opt/openjdk@11/bin:$PATH"' >> ~/.zshrc
+    echo 'export JAVA_HOME=$(/usr/libexec/java_home -v 11)' >> ~/.zshrc
+    source ~/.zshrc
+    java -version
+    ```
+
+5. **Download Kafka**
 
     Download Kafka from the [official Apache website](https://www.apache.org/dyn/closer.cgi?path=/kafka/).
 
-5. **Start Zookeeper and Kafka**
+6. **Start Zookeeper and Kafka**
 
     ```sh
     # Start Zookeeper
@@ -66,7 +95,7 @@ This APT detection system consists of the following components:
     bin/kafka-server-start.sh config/server.properties
     ```
 
-6. **Create Kafka Topic**
+7. **Create Kafka Topic**
 
     ```sh
     bin/kafka-topics.sh --create --topic apt_topic --bootstrap-server localhost:9092 --partitions 1 --replication-factor 1
