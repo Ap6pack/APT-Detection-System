@@ -1,7 +1,3 @@
-Here's the updated Readme with an additional step for downloading Kafka added to the Setup Instructions section:
-
----
-
 # APT Detection System
 
 This project is a Python-based Advanced Persistent Threat (APT) detection system that uses the Hybrid HHOSSA optimization technique for feature selection and data balancing. It integrates LightGBM and Bi-LSTM models for classification and provides a real-time detection system with a monitoring dashboard.
