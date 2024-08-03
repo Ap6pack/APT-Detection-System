@@ -10,3 +10,4 @@ matplotlib
 plotly
 imbalanced-learn
 tensorrt
+six
