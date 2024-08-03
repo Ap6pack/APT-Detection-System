@@ -89,10 +89,10 @@ This APT detection system consists of the following components:
 
     ```sh
     # Start Zookeeper
-    bin/zookeeper-server-start.sh config/zookeeper.properties
+    kafka_2.13-3.8.0/bin/zookeeper-server-start.sh kafka_2.13-3.8.0/config/zookeeper.properties
 
     # Start Kafka (in a new terminal)
-    bin/kafka-server-start.sh config/server.properties
+    kafka_2.13-3.8.0/bin/kafka-server-start.sh kafka_2.13-3.8.0/config/server.properties
     ```
 
 7. **Create Kafka Topic**
