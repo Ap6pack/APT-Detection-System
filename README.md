@@ -1,3 +1,7 @@
+Here's the updated Readme with an additional step for downloading Kafka added to the Setup Instructions section:
+
+---
+
 # APT Detection System
 
 This project is a Python-based Advanced Persistent Threat (APT) detection system that uses the Hybrid HHOSSA optimization technique for feature selection and data balancing. It integrates LightGBM and Bi-LSTM models for classification and provides a real-time detection system with a monitoring dashboard.
@@ -52,7 +56,11 @@ This APT detection system consists of the following components:
     pip install -r requirements.txt
     ```
 
-4. **Start Zookeeper and Kafka**
+4. **Download Kafka**
+
+    Download Kafka from the [official Apache website](https://www.apache.org/dyn/closer.cgi?path=/kafka/).
+
+5. **Start Zookeeper and Kafka**
 
     ```sh
     # Start Zookeeper
@@ -62,7 +70,7 @@ This APT detection system consists of the following components:
     bin/kafka-server-start.sh config/server.properties
     ```
 
-5. **Create Kafka Topic**
+6. **Create Kafka Topic**
 
     ```sh
     bin/kafka-topics.sh --create --topic apt_topic --bootstrap-server localhost:9092 --partitions 1 --replication-factor 1
