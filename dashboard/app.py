@@ -14,7 +14,10 @@ def plotly():
     plot_json = create_plotly_plot()
     return jsonify(plot_json)
 
-if __name__ == '__main__':
+def run():
     logging.basicConfig(level=logging.INFO)
     logging.info("Starting Flask app...")
     app.run(debug=True, use_reloader=False)
+
+if __name__ == '__main__':
+    run()

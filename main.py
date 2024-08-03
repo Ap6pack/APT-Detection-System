@@ -17,13 +17,13 @@ def run_data_ingestion():
 
 def run_dashboard():
     logging.info("Starting dashboard...")
-    app.run(debug=True, use_reloader=False)
+    app.run()
 
 if __name__ == "__main__":
     try:
         # Load and preprocess data
         logging.info("Starting data preprocessing...")
-        df = preprocess.run('/home/localhost/Projects/APT_Detection_System/synthetic_apt_dataset.csv')
+        df = preprocess.run('/home/localhost/Projects/APT-Detection-System/synthetic_apt_dataset.csv')
         logging.info("Data preprocessing completed.")
 
         # Feature selection
