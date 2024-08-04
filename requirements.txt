@@ -6,6 +6,7 @@ tensorflow
 keras
 flask
 kafka-python-ng
+kafka-python
 matplotlib
 plotly
 imbalanced-learn
