@@ -1,6 +1,6 @@
 import tensorflow as tf
 from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import Input, Embedding, Bidirectional, LSTM, Dense
+from tensorflow.keras.layers import Input, Bidirectional, LSTM, Dense
 from sklearn.model_selection import train_test_split
 import numpy as np
 import pandas as pd
@@ -10,14 +10,24 @@ def train(df):
     y = df['label'].values
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
+    # Define the maximum sequence length
+    max_sequence_length = X_train.shape[1]
+
+    # Reshape the input data to 3D for LSTM
+    X_train = X_train.reshape((X_train.shape[0], X_train.shape[1], 1))
+    X_test = X_test.reshape((X_test.shape[0], X_test.shape[1], 1))
+
     model = Sequential()
-    model.add(Input(shape=(X_train.shape[1],)))
-    model.add(Embedding(input_dim=1000, output_dim=64))
+    model.add(Input(shape=(max_sequence_length, 1)))  # Specify input shape explicitly for LSTM
     model.add(Bidirectional(LSTM(64)))
     model.add(Dense(1, activation='sigmoid'))
 
     model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
-    model.fit(np.array(X_train), np.array(y_train), epochs=10, batch_size=32)
+    model.fit(X_train, y_train, epochs=10, batch_size=32, validation_data=(X_test, y_test))
+
+    # Evaluate the model on the test set
+    loss, accuracy = model.evaluate(X_test, y_test)
+    print(f"Test Loss: {loss}, Test Accuracy: {accuracy}")
 
     return model
 
