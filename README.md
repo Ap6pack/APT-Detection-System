@@ -8,6 +8,7 @@ This project is a Python-based Advanced Persistent Threat (APT) detection system
 - [Setup Instructions](#setup-instructions)
 - [Usage](#usage)
 - [File Structure](#file-structure)
+- [Integrating Real-Time Data Sources for APT Detection](#integrating-real-time-data-sources-for-apt-detection)
 - [Contributing](#contributing)
 - [License](#license)
 
@@ -177,6 +178,118 @@ APT_Detection_System/
 ├── produce_messages.py
 └── requirements.txt
 ```
+
+## Integrating Real-Time Data Sources for APT Detection
+
+This guide provides detailed configurations for integrating various real-time data sources to enhance Advanced Persistent Threat (APT) detection capabilities.
+
+### Table of Contents
+1. [Security Information and Event Management (SIEM)](#siem-systems)
+2. [Intrusion Detection Systems (IDS) and Intrusion Prevention Systems (IPS)](#ids-and-ips)
+3. [Endpoint Detection and Response (EDR)](#endpoint-detection-and-response-edr)
+4. [Threat Intelligence Feeds](#threat-intelligence-feeds)
+5. [Network Traffic Analysis](#network-traffic-analysis)
+
+### SIEM Systems
+
+#### Splunk
+1. **Install Splunk Forwarder**:
+   ```sh
+   wget -O splunkforwarder.tgz "https://download.splunk.com/products/universalforwarder/releases/8.1.3/linux/splunkforwarder-8.1.3-aeae3fe429ae-Linux-x86_64.tgz"
+   tar -xvf splunkforwarder.tgz
+   ./splunkforwarder/bin/splunk start --accept-license
+   ./splunkforwarder/bin/splunk enable boot-start
+   ```
+
+2. **Configure Data Inputs**:
+   - Add data inputs through Splunk Web UI (Settings > Data Inputs).
+   - Monitor specific directories, files, or network ports.
+
+3. **Create Dashboards and Alerts**:
+   - Use the Splunk Search Processing Language (SPL) to create queries.
+   - Build dashboards in the Splunk Web UI (Dashboard > Create New Dashboard).
+   - Set up alerts (Alerts > Create New Alert) based on query results.
+
+### IDS and IPS
+
+#### Snort
+1. **Install Snort**:
+   ```sh
+   sudo apt-get install snort
+   ```
+
+2. **Configure snort.conf**:
+   - Edit `/etc/snort/snort.conf` to set HOME_NET and EXTERNAL_NET.
+   - Define rule paths: `var RULE_PATH /etc/snort/rules`.
+   - Set output plugins for logging.
+
+3. **Update Rules**:
+   - Download rules from Snort.org or subscribe to rule updates.
+   - Place rule files in `/etc/snort/rules`.
+
+4. **Start Snort**:
+   ```sh
+   sudo snort -c /etc/snort/snort.conf -i eth0
+   ```
+
+5. **Log Management**:
+   - Configure Snort to log to a centralized log management system like Splunk or ELK Stack.
+
+### Endpoint Detection and Response (EDR)
+
+#### CrowdStrike Falcon
+1. **Deploy Falcon Agent**:
+   - Obtain the Falcon installer from the CrowdStrike portal.
+   - Install on endpoints:
+     ```sh
+     sudo apt-get install falcon-sensor
+     sudo systemctl start falconsensor
+     sudo systemctl enable falconsensor
+     ```
+
+2. **Configure Policies**:
+   - In the CrowdStrike console, configure detection and prevention policies.
+
+3. **Integrate with SIEM**:
+   - Use CrowdStrike API to pull event data into your SIEM.
+
+4. **Set Alerts**:
+   - Configure alerts in the CrowdStrike console based on detection events.
+
+### Threat Intelligence Feeds
+
+#### AlienVault OTX
+1. **Create OTX Account**:
+   - Sign up at [AlienVault OTX](https://otx.alienvault.com).
+
+2. **Integrate with SIEM**:
+   - Use OTX API to integrate threat data with SIEM systems.
+
+3. **Set Alerts and Workflows**:
+   - In your SIEM, create correlation rules based on OTX indicators.
+
+### Network Traffic Analysis
+
+#### Zeek
+1. **Install Zeek**:
+   ```sh
+   sudo apt-get
+   ``` 
+2. **Configure Network Interfaces**:
+   - Edit `/usr/local/zeek/etc/node.cfg` to define network interfaces for monitoring.
+
+3. **Edit zeek.cfg**:
+   - Set paths for logs and scripts: `LogDir = /var/log/zeek`.
+
+4. **Deploy Scripts**:
+   - Use built-in and custom Zeek scripts for specific detections.
+
+5. **Integrate with SIEM**:
+   - Send Zeek logs to SIEM for correlation and analysis.
+
+---
+
+By following these configurations, you can effectively integrate various real-time data sources to enhance your APT detection capabilities.
 
 ## Contributing
 
