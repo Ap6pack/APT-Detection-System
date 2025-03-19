@@ -5,23 +5,71 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>APT Detection Dashboard</title>
     <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 20px;
+            border-radius: 5px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+        h1 {
+            color: #333;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 10px;
+        }
+        .plot-container {
+            margin-bottom: 30px;
+        }
+        .nav {
+            margin-bottom: 20px;
+        }
+        .nav a {
+            margin-right: 15px;
+            color: #007bff;
+            text-decoration: none;
+        }
+        .nav a:hover {
+            text-decoration: underline;
+        }
+    </style>
 </head>
 <body>
-    <h1>Welcome to the APT Detection Dashboard</h1>
-    <p>This is where you can monitor the system.</p>
+    <div class="container">
+        <div class="nav">
+            <a href="/">Dashboard</a>
+            <a href="/plotly">Plotly Charts</a>
+            <a href="/models">Models</a>
+        </div>
+        
+        <h1>Welcome to the APT Detection Dashboard</h1>
+        <p>This is where you can monitor the system.</p>
 
-    <h2>Matplotlib Plot</h2>
-    <img src="data:image/png;base64, {{ plot_url }}" alt="Matplotlib Plot">
+        <div class="plot-container">
+            <h2>Matplotlib Plot</h2>
+            <img src="data:image/png;base64, {{ plot_url }}" alt="Matplotlib Plot" style="max-width: 100%;">
+        </div>
 
-    <h2>Plotly Plot</h2>
-    <div id="plotly-div"></div>
-    <script>
-        fetch('/plotly')
-        .then(response => response.json())
-        .then(data => {
-            var plotDiv = document.getElementById('plotly-div');
-            Plotly.react(plotDiv, data.data, data.layout);
-        });
-    </script>
+        <div class="plot-container">
+            <h2>Plotly Plot</h2>
+            <div id="plotly-div" style="width: 100%; height: 400px;"></div>
+        </div>
+        
+        <script>
+            fetch('/plotly')
+            .then(response => response.json())
+            .then(data => {
+                var plotDiv = document.getElementById('plotly-div');
+                Plotly.react(plotDiv, data.data, data.layout);
+            });
+        </script>
+    </div>
 </body>
 </html>

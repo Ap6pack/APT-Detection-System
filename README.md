@@ -19,6 +19,7 @@ This APT detection system consists of the following components:
 - **Feature Selection**: Select significant features using the HHOSSA technique.
 - **Data Balancing**: Balance the dataset using HHOSSA-SMOTE.
 - **Model Training**: Train LightGBM and Bi-LSTM models.
+- **Model Persistence**: Save and load trained models for reuse.
 - **Model Evaluation**: Evaluate models using accuracy and ROC-AUC.
 - **Real-Time Detection**: Ingest real-time data using Kafka.
 - **Monitoring Dashboard**: Visualize data and model performance using Flask and Plotly.
@@ -129,25 +130,89 @@ Run the script to send messages to the Kafka topic:
 python3 produce_messages.py
 ```
 
+### Configuration
+
+The system uses a `config.yaml` file for configuration. You can modify this file to customize various aspects of the system:
+
+```yaml
+# APT Detection System Configuration
+
+# Model paths for persistence
+model_paths:
+  lightgbm: models/saved/lightgbm_model.pkl
+  bilstm: models/saved/bilstm_model.h5
+  
+# Data paths
+data_paths:
+  dataset: synthetic_apt_dataset.csv
+  
+# Kafka configuration
+kafka:
+  bootstrap_servers: localhost:9092
+  topic: apt_topic
+  
+# Training parameters
+training:
+  test_size: 0.2
+  random_state: 42
+  
+# Dashboard configuration
+dashboard:
+  host: 127.0.0.1
+  port: 5000
+  debug: true
+```
+
 ### Running the Main Script
 
+The main script now supports command-line arguments to run specific components:
+
 ```sh
-python3 main.py
+# Run all components (training, prediction, dashboard)
+python3 main.py --all
+
+# Run only the training component
+python3 main.py --train
+
+# Run only the prediction engine
+python3 main.py --predict
+
+# Run only the dashboard
+python3 main.py --dashboard
+
+# Run training and prediction without the dashboard
+python3 main.py --train --predict
 ```
+
+If no arguments are provided, the system will run all components by default.
+
+### Model Persistence
+
+The system now supports saving and loading trained models:
+
+- Models are automatically saved after training to the paths specified in `config.yaml`
+- When running the prediction engine without training, models are loaded from disk
+- The dashboard includes a new page at `/models` that shows the status of saved models
 
 ### Accessing the Dashboard
 
-Open your web browser and go to `http://127.0.0.1:5000/` to view the dashboard.
+Open your web browser and go to `http://127.0.0.1:5000/` to view the dashboard. The dashboard now includes:
+
+- Main page with visualization plots
+- Plotly charts page with interactive visualizations
+- Models page showing the status of saved models
 
 ## File Structure
 
 ```
 APT_Detection_System/
+├── config.yaml                      # Configuration file
 ├── dashboard/
 │   ├── __init__.py
 │   ├── app.py
 │   └── templates/
-│       └── index.html
+│       ├── index.html               # Main dashboard page
+│       └── models.html              # Model status page
 ├── data_preprocessing/
 │   ├── __init__.py
 │   ├── preprocess.py
@@ -165,18 +230,21 @@ APT_Detection_System/
 │   └── hhosssa_smote.py
 ├── models/
 │   ├── __init__.py
-│   ├── train_models.py
+│   ├── train_models.py              # Updated with model saving
 │   ├── lightgbm_model.py
 │   ├── bilstm_model.py
-│   └── hybrid_classifier.py
+│   ├── hybrid_classifier.py
+│   └── saved/                       # Directory for saved models
+│       ├── lightgbm_model.pkl       # Saved LightGBM model
+│       └── bilstm_model.h5          # Saved Bi-LSTM model
 ├── real_time_detection/
 │   ├── __init__.py
 │   ├── data_ingestion.py
-│   └── prediction_engine.py
+│   └── prediction_engine.py         # Updated with model loading
 ├── visualization.py
-├── main.py
+├── main.py                          # Updated with CLI arguments
 ├── produce_messages.py
-└── requirements.txt
+└── requirements.txt                 # Updated with new dependencies
 ```
 
 ## Integrating Real-Time Data Sources for APT Detection

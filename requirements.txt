@@ -12,3 +12,5 @@ plotly
 imbalanced-learn
 tensorrt
 six
+joblib
+pyyaml

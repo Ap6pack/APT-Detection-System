@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>APT Detection System - Models</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 20px;
+            border-radius: 5px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+        h1 {
+            color: #333;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 10px;
+        }
+        .model-card {
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 15px;
+            margin-bottom: 15px;
+        }
+        .model-status {
+            display: inline-block;
+            padding: 5px 10px;
+            border-radius: 3px;
+            font-weight: bold;
+        }
+        .status-available {
+            background-color: #d4edda;
+            color: #155724;
+        }
+        .status-unavailable {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+        .nav {
+            margin-bottom: 20px;
+        }
+        .nav a {
+            margin-right: 15px;
+            color: #007bff;
+            text-decoration: none;
+        }
+        .nav a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="nav">
+            <a href="/">Dashboard</a>
+            <a href="/plotly">Plotly Charts</a>
+            <a href="/models">Models</a>
+        </div>
+        
+        <h1>Saved Models</h1>
+        
+        <div class="model-card">
+            <h2>LightGBM Model</h2>
+            <p>A gradient boosting framework that uses tree-based learning algorithms.</p>
+            <div class="model-status {% if model_info.lightgbm %}status-available{% else %}status-unavailable{% endif %}">
+                {% if model_info.lightgbm %}
+                    Available
+                {% else %}
+                    Not Available
+                {% endif %}
+            </div>
+        </div>
+        
+        <div class="model-card">
+            <h2>Bi-LSTM Model</h2>
+            <p>A bidirectional LSTM neural network for sequence modeling.</p>
+            <div class="model-status {% if model_info.bilstm %}status-available{% else %}status-unavailable{% endif %}">
+                {% if model_info.bilstm %}
+                    Available
+                {% else %}
+                    Not Available
+                {% endif %}
+            </div>
+        </div>
+        
+        <div class="model-card">
+            <h2>Hybrid Model</h2>
+            <p>A combination of LightGBM and Bi-LSTM models for improved performance.</p>
+            <p><em>Note: The hybrid model is created at runtime by combining the LightGBM and Bi-LSTM models.</em></p>
+        </div>
+    </div>
+</body>
+</html>

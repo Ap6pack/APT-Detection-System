@@ -1,0 +1,37 @@
+# APT Detection System Configuration
+
+model_paths:
+  base_dir: models/
+  lightgbm: lightgbm_model.pkl
+  bilstm: bilstm_model.h5
+
+training_params:
+  lightgbm:
+    num_leaves: 31
+    learning_rate: 0.05
+    n_estimators: 100
+
+  bilstm:
+    epochs: 5
+    batch_size: 32
+    lstm_units: 64
+
+split_params:
+  test_size: 0.2
+  random_state: 42
+
+data_paths:
+  dataset: synthetic_apt_dataset.csv
+
+kafka:
+  bootstrap_servers: localhost:9092
+  topic: apt_topic
+
+dashboard:
+  host: 127.0.0.1
+  port: 5000
+  debug: true
+
+settings:
+  overwrite_models: true
+  log_level: INFO
