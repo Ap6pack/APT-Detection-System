@@ -2,7 +2,7 @@ import os
 import yaml
 import joblib
 from tensorflow.keras.models import save_model
-from .lighgbm_model import train as train_lgbm
+from .lightgbm_model import train as train_lgbm
 from .bilstm_model import train as train_bilstm
 from .hybrid_classifier import combine
 

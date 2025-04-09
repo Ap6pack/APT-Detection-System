@@ -7,7 +7,7 @@ from data_preprocessing import preprocess
 from feature_selection import hhosssa_feature_selection
 from data_balancing import hhosssa_smote
 from models import train_models
-from evaluation import evaluation_metrics, cross_validation
+from evaluation import evaluation_metrics
 from real_time_detection import data_ingestion, prediction_engine
 from dashboard import app
 
@@ -22,6 +22,23 @@ def run_data_ingestion(config):
     logging.info("Starting real-time data ingestion...")
     data_ingestion.run()
     logging.info("Real-time data ingestion and prediction setup completed.")
+
+def initialize_baselines():
+    """Initialize baseline models if they don't exist."""
+    logging.info("Checking for baseline models...")
+    engine = prediction_engine.PredictionEngine()
+    
+    # Check if baseline models exist
+    if not engine.behavioral_analytics.baseline_models:
+        logging.info("No baseline models found. Establishing baselines...")
+        try:
+            # Generate synthetic data and establish baselines
+            engine.establish_baseline(days=7)
+            logging.info("Baseline models established successfully.")
+        except Exception as e:
+            logging.error(f"Failed to establish baseline models: {e}")
+    else:
+        logging.info("Baseline models already exist.")
 
 def run_dashboard(config):
     logging.info("Starting dashboard...")
@@ -88,6 +105,10 @@ if __name__ == "__main__":
         # Initialize threads
         ingestion_thread = None
         dashboard_thread = None
+        
+        # Initialize baseline models if needed
+        if args.predict or args.dashboard or args.all:
+            initialize_baselines()
         
         # Run prediction engine if requested
         if args.predict or args.all:

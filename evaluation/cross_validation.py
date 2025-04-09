@@ -10,7 +10,7 @@ from sklearn.metrics import accuracy_score, roc_auc_score
 from data_preprocessing import preprocess
 from feature_selection import hhosssa_feature_selection
 from data_balancing import hhosssa_smote
-from models.lighgbm_model import train as train_lgbm
+from models.lightgbm_model import train as train_lgbm
 from models.bilstm_model import train as train_bilstm
 from models.hybrid_classifier import combine
 

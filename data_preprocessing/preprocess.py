@@ -10,5 +10,5 @@ def run(file_path):
 
 # Testing the preprocessing module
 if __name__ == "__main__":
-    df = run('~/../synthetic_apt_dataset.csv')
+    df = run('synthetic_apt_dataset.csv')
     print(df.head())

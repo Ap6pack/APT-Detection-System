@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Data Source Connectors - APT Detection System</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/css/bootstrap.min.css">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 20px;
+            border-radius: 5px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+        h1, h2, h3 {
+            color: #333;
+        }
+        .nav {
+            margin-bottom: 20px;
+        }
+        .nav a {
+            margin-right: 15px;
+            color: #007bff;
+            text-decoration: none;
+        }
+        .nav a:hover {
+            text-decoration: underline;
+        }
+        .card {
+            margin-bottom: 20px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+        .card-header {
+            background-color: #f8f9fa;
+            font-weight: bold;
+        }
+        .connector-status {
+            display: inline-block;
+            padding: 5px 10px;
+            border-radius: 3px;
+            font-weight: bold;
+        }
+        .status-enabled {
+            background-color: #d4edda;
+            color: #155724;
+        }
+        .status-disabled {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+        .connector-type {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 3px;
+            font-size: 0.8rem;
+            background-color: #e9ecef;
+            color: #495057;
+        }
+        .connector-type.edr {
+            background-color: #cce5ff;
+            color: #004085;
+        }
+        .connector-type.siem {
+            background-color: #d1ecf1;
+            color: #0c5460;
+        }
+        .connector-type.mq {
+            background-color: #d4edda;
+            color: #155724;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="nav">
+            <a href="/">Dashboard</a>
+            <a href="/alerts">Alerts</a>
+            <a href="/models">Models</a>
+            <a href="/connectors">Connectors</a>
+            <a href="/settings">Settings</a>
+        </div>
+        
+        <h1>Data Source Connectors</h1>
+        <p>This page shows the configured data source connectors for the APT detection system.</p>
+        
+        <div class="row">
+            {% for connector in connector_info %}
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <div>
+                                {{ connector.name }}
+                                <span class="connector-type {% if connector.type == 'EDR' %}edr{% elif connector.type == 'SIEM' %}siem{% elif connector.type == 'Message Queue' %}mq{% endif %}">
+                                    {{ connector.type }}
+                                </span>
+                            </div>
+                            <span class="connector-status {% if connector.enabled %}status-enabled{% else %}status-disabled{% endif %}">
+                                {% if connector.enabled %}Enabled{% else %}Disabled{% endif %}
+                            </span>
+                        </div>
+                        <div class="card-body">
+                            {% if connector.type == 'EDR' %}
+                                <p><strong>API URL:</strong> {{ connector.api_url }}</p>
+                                <p><strong>Fetch Interval:</strong> {{ connector.fetch_interval }} seconds</p>
+                                
+                                {% if connector.enabled %}
+                                    <div class="alert alert-info">
+                                        <strong>Note:</strong> This connector is collecting endpoint security data from Wazuh.
+                                    </div>
+                                {% else %}
+                                    <div class="alert alert-warning">
+                                        <strong>Note:</strong> This connector is disabled. To enable it, update the <code>config.yaml</code> file.
+                                    </div>
+                                {% endif %}
+                                
+                            {% elif connector.type == 'SIEM' %}
+                                <p><strong>Hosts:</strong> {{ connector.hosts|join(', ') }}</p>
+                                <p><strong>Index Pattern:</strong> {{ connector.index_pattern }}</p>
+                                <p><strong>Fetch Interval:</strong> {{ connector.fetch_interval }} seconds</p>
+                                
+                                {% if connector.enabled %}
+                                    <div class="alert alert-info">
+                                        <strong>Note:</strong> This connector is collecting security events from Elasticsearch.
+                                    </div>
+                                {% else %}
+                                    <div class="alert alert-warning">
+                                        <strong>Note:</strong> This connector is disabled. To enable it, update the <code>config.yaml</code> file.
+                                    </div>
+                                {% endif %}
+                                
+                            {% elif connector.type == 'Message Queue' %}
+                                <p><strong>Bootstrap Servers:</strong> {{ connector.bootstrap_servers }}</p>
+                                <p><strong>Topic:</strong> {{ connector.topic }}</p>
+                                
+                                <div class="alert alert-info">
+                                    <strong>Note:</strong> This connector is collecting messages from Kafka.
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            {% else %}
+                <div class="col-12">
+                    <div class="alert alert-warning">
+                        <strong>No connectors configured.</strong> Please check your <code>config.yaml</code> file.
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+        
+        <div class="card mt-4">
+            <div class="card-header">How to Configure Connectors</div>
+            <div class="card-body">
+                <p>To configure data source connectors, edit the <code>config.yaml</code> file in the project root directory.</p>
+                
+                <h5>Example Configuration:</h5>
+                <pre><code>data_sources:
+  # Wazuh EDR connector configuration
+  wazuh:
+    enabled: true  # Set to true to enable Wazuh integration
+    api_url: "https://wazuh.example.com:55000"
+    username: "wazuh-api-user"
+    password: "wazuh-api-password"
+    verify_ssl: false
+    fetch_interval: 60  # Seconds between fetches
+
+  # Elasticsearch SIEM connector configuration
+  elasticsearch:
+    enabled: true  # Set to true to enable Elasticsearch integration
+    hosts: ["localhost:9200"]
+    index_pattern: "winlogbeat-*"
+    username: "elastic"
+    password: "changeme"
+    verify_certs: false
+    fetch_interval: 60  # Seconds between fetches
+
+kafka:
+  bootstrap_servers: localhost:9092
+  topic: apt_topic</code></pre>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

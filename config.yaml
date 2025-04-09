@@ -23,6 +23,27 @@ split_params:
 data_paths:
   dataset: synthetic_apt_dataset.csv
 
+# Data source connectors configuration
+data_sources:
+  # Wazuh EDR connector configuration
+  wazuh:
+    enabled: false  # Set to true to enable Wazuh integration
+    api_url: "https://wazuh.example.com:55000"
+    username: "wazuh-api-user"
+    password: "wazuh-api-password"
+    verify_ssl: false
+    fetch_interval: 60  # Seconds between fetches
+
+  # Elasticsearch SIEM connector configuration
+  elasticsearch:
+    enabled: false  # Set to true to enable Elasticsearch integration
+    hosts: ["localhost:9200"]
+    index_pattern: "winlogbeat-*"
+    username: "elastic"
+    password: "changeme"
+    verify_certs: false
+    fetch_interval: 60  # Seconds between fetches
+
 kafka:
   bootstrap_servers: localhost:9092
   topic: apt_topic
@@ -35,3 +56,14 @@ dashboard:
 settings:
   overwrite_models: true
   log_level: INFO
+  # Data collection settings
+  collection_interval_seconds: 60  # How often to collect data from connectors
+  # Behavioral analytics settings
+  behavioral_analytics:
+    baseline_period_days: 7    # Days of data to use for baseline
+    anomaly_threshold: 0.8     # Threshold for anomaly detection (0.0-1.0)
+    time_window_minutes: 10    # Time window for feature aggregation
+  # Alert settings
+  alerts:
+    max_alerts: 1000           # Maximum number of alerts to store in memory
+    retention_days: 30         # How long to keep alerts (for database implementation)

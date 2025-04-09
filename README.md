@@ -1,368 +1,426 @@
-# APT Detection System
+# Advanced Persistent Threat (APT) Detection System
 
-This project is a Python-based Advanced Persistent Threat (APT) detection system that uses the Hybrid HHOSSA optimization technique for feature selection and data balancing. It integrates LightGBM and Bi-LSTM models for classification and provides a real-time detection system with a monitoring dashboard.
+A comprehensive security solution that combines machine learning, behavioral analytics, and real-time monitoring to detect sophisticated cyber threats.
 
-## Table of Contents
+![Security](https://img.shields.io/badge/Security-Advanced-blue)
+![Python](https://img.shields.io/badge/Python-3.8+-green)
+![License](https://img.shields.io/badge/License-MIT-yellow)
 
-- [Project Overview](#project-overview)
-- [Setup Instructions](#setup-instructions)
-- [Usage](#usage)
-- [File Structure](#file-structure)
-- [Integrating Real-Time Data Sources for APT Detection](#integrating-real-time-data-sources-for-apt-detection)
-- [Contributing](#contributing)
-- [License](#license)
+## Overview
 
-## Project Overview
+The APT Detection System is designed to identify and respond to advanced persistent threats using a multi-layered approach that combines traditional machine learning with behavioral analytics. The system integrates with various data sources, maps detected threats to the MITRE ATT&CK framework, and provides an intuitive dashboard for security analysts.
 
-This APT detection system consists of the following components:
-- **Data Preprocessing**: Load and clean the dataset, and extract features.
-- **Feature Selection**: Select significant features using the HHOSSA technique.
-- **Data Balancing**: Balance the dataset using HHOSSA-SMOTE.
-- **Model Training**: Train LightGBM and Bi-LSTM models.
-- **Model Persistence**: Save and load trained models for reuse.
-- **Model Evaluation**: Evaluate models using accuracy and ROC-AUC.
-- **Real-Time Detection**: Ingest real-time data using Kafka.
-- **Monitoring Dashboard**: Visualize data and model performance using Flask and Plotly.
+### Key Capabilities
 
-## Setup Instructions
+- **Hybrid Detection Engine**: Combines LightGBM and Bi-LSTM models with behavioral analytics
+- **Real-Time Monitoring**: Integrates with EDR, SIEM systems, and Kafka streams
+- **Behavioral Analysis**: Establishes baselines and detects anomalies in entity behavior
+- **MITRE ATT&CK Mapping**: Automatically maps threats to the MITRE ATT&CK framework
+- **Interactive Dashboard**: Provides comprehensive visualization and analysis tools
+
+## Architecture
+
+The system employs a modular architecture with two main workflows:
+
+1. **Model Training Pipeline**: Processes historical data to train detection models
+2. **Real-time Detection Pipeline**: Analyzes incoming data streams to identify threats
+
+### System Architecture Diagram
+
+```mermaid
+graph TD;
+    %% Data Sources and Ingestion
+    DS[Data Sources] -->|Kafka, EDR, SIEM| DI[Data Ingestion]
+    
+    %% Training Pipeline
+    DP[Data Preprocessing] --> FS[Feature Selection]
+    FS --> DB[Data Balancing]
+    DB --> MT[Model Training]
+    MT --> LGB[LightGBM Model]
+    MT --> LSTM[Bi-LSTM Model]
+    LGB --> HM[Hybrid Model]
+    LSTM --> HM
+    
+    %% Real-time Pipeline
+    DI --> FE[Feature Extraction]
+    FE --> HM
+    FE --> AD[Anomaly Detection]
+    
+    %% Behavioral Analytics
+    BA[Behavioral Analytics] --> BE[Baseline Establishment]
+    BE --> AD
+    
+    %% Detection and Alerts
+    HM --> MLD[ML-based Detection]
+    AD --> BBD[Behavior-based Detection]
+    MLD --> AG[Alert Generation]
+    BBD --> AG
+    AG --> MITRE[MITRE ATT&CK Mapping]
+    AG --> REDIS[Redis Storage]
+    MITRE --> DASH[Dashboard Visualization]
+    REDIS --> DASH
+```
+
+### Architecture Components
+
+- **Data Ingestion**: Collects data from multiple sources (Kafka, EDR, SIEM)
+- **Data Preprocessing**: Cleans and normalizes training data
+- **Feature Selection**: Uses HHOSSSA algorithm to select relevant features
+- **Data Balancing**: Applies HHOSSSA-SMOTE to address class imbalance
+- **Model Training**: Trains LightGBM and Bi-LSTM models
+- **Hybrid Model**: Combines predictions from multiple models
+- **Behavioral Analytics**: Establishes normal behavior baselines
+- **Anomaly Detection**: Identifies deviations from normal behavior
+- **Alert Generation**: Creates alerts based on detection results
+- **Alert Storage**: Stores alerts in Redis for persistence and sharing between processes
+- **MITRE ATT&CK Mapping**: Maps threats to the MITRE framework
+- **Dashboard**: Visualizes alerts and provides analysis tools
+
+## Installation
 
 ### Prerequisites
 
 - Python 3.8 or higher
-- Java Development Kit (JDK) 11 or higher
-- Kafka
-- Zookeeper
+- Java Development Kit (JDK) 11 or higher (for Kafka integration)
+- Wazuh Server (optional, for EDR integration)
+- Elasticsearch (optional, for SIEM integration)
 
-### Installation
+### Core Installation
 
-1. **Clone the Repository**
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/yourusername/APT-Detection-System.git
+   cd APT-Detection-System
+   ```
 
-    ```sh
-    git clone https://github.com/Ap6pack/APT-Detection-System.git
-    cd APT-Detection-System
-    ```
+2. Create and activate a virtual environment:
+   ```bash
+   python3 -m venv venv
+   source venv/bin/activate  # On Windows: venv\Scripts\activate
+   ```
 
-2. **Create and Activate a Virtual Environment**
+3. Install dependencies:
+   ```bash
+   pip install -r requirements.txt
+   ```
 
-    ```sh
-    python3 -m venv venv
-    source venv/bin/activate
-    ```
+### Optional Integrations
 
-3. **Install Dependencies**
+#### Kafka Integration
 
-    ```sh
-    pip install -r requirements.txt
-    ```
+1. Download and install Kafka from the [official Apache website](https://kafka.apache.org/downloads)
+   - Select the latest stable release (e.g., 3.5.x)
+   - Download the binary distribution (e.g., kafka_2.13-3.5.1.tgz)
+   - Extract the archive to your preferred location
 
-4. **Install Java (if not already installed)**
+   > **Note**: Zookeeper is included in the Kafka distribution. You don't need to download Zookeeper separately.
 
-    #### On Ubuntu/Debian
+2. Start Zookeeper and Kafka servers:
+   ```bash
+   # Navigate to the Kafka directory
+   cd kafka_2.13-3.5.1
+   
+   # Start Zookeeper first
+   ./bin/zookeeper-server-start.sh config/zookeeper.properties
+   
+   # In a new terminal, start Kafka
+   ./bin/kafka-server-start.sh config/server.properties
+   ```
 
-    ```sh
-    sudo apt update
-    sudo apt install openjdk-11-jdk
-    java -version
-    ```
+3. In a new terminal, create a topic for APT detection:
+   ```bash
+   ./bin/kafka-topics.sh --create --topic apt-topic --bootstrap-server localhost:9092 --partitions 1 --replication-factor 1
+   ```
 
-    #### On CentOS/RHEL
+4. Verify the topic was created:
+   ```bash
+   ./bin/kafka-topics.sh --list --bootstrap-server localhost:9092
+   ```
 
-    ```sh
-    sudo yum install java-11-openjdk-devel
-    java -version
-    ```
+5. Troubleshooting Kafka:
+   - If Kafka server quits unexpectedly, check the following:
+     - Ensure Zookeeper is running before starting Kafka
+     - Increase memory allocation: `export KAFKA_HEAP_OPTS="-Xmx512M -Xms512M"`
+     - Check for port conflicts on 9092 (Kafka) and 2181 (Zookeeper)
+     - Verify logs in `logs/server.log` for specific error messages
+     - Try running in foreground mode for more visible errors: `./bin/kafka-server-start.sh -daemon config/server.properties`
 
-    #### On macOS
+#### Wazuh EDR Integration
 
-    ```sh
-    brew update
-    brew install openjdk@11
-    echo 'export PATH="/usr/local/opt/openjdk@11/bin:$PATH"' >> ~/.zshrc
-    echo 'export JAVA_HOME=$(/usr/libexec/java_home -v 11)' >> ~/.zshrc
-    source ~/.zshrc
-    java -version
-    ```
+1. Install Wazuh Server following the [official documentation](https://documentation.wazuh.com/current/installation-guide/index.html)
+2. Configure the Wazuh API in the `config.yaml` file
 
-5. **Download Kafka**
+#### Elasticsearch SIEM Integration
 
-    Download Kafka from the [official Apache website](https://www.apache.org/dyn/closer.cgi?path=/kafka/).
+1. Install Elasticsearch following the [official documentation](https://www.elastic.co/guide/en/elasticsearch/reference/current/install-elasticsearch.html)
+2. Configure Elasticsearch in the `config.yaml` file
 
-6. **Start Zookeeper and Kafka**
+#### Redis Integration (Recommended)
 
-    ```sh
-    # Start Zookeeper
-    kafka_2.13-3.8.0/bin/zookeeper-server-start.sh kafka_2.13-3.8.0/config/zookeeper.properties
+The system uses Redis for robust alert storage, enabling data sharing between different processes and providing persistence across system restarts.
 
-    # Start Kafka (in a new terminal)
-    kafka_2.13-3.8.0/bin/kafka-server-start.sh kafka_2.13-3.8.0/config/server.properties
-    ```
+1. Install Redis:
+   ```bash
+   # On Ubuntu/Debian
+   sudo apt-get update
+   sudo apt-get install redis-server
+   
+   # On CentOS/RHEL
+   sudo yum install redis
+   
+   # On macOS with Homebrew
+   brew install redis
+   ```
 
-7. **Create Kafka Topic**
+2. Start Redis server:
+   ```bash
+   # On Linux
+   sudo systemctl start redis-server
+   
+   # On macOS
+   brew services start redis
+   
+   # Or run directly
+   redis-server
+   ```
 
-    ```sh
-    kafka_2.13-3.8.0/bin/kafka-topics.sh --create --topic apt_topic --bootstrap-server localhost:9092 --partitions 1 --replication-factor 1
-    ```
+3. Verify Redis is running:
+   ```bash
+   redis-cli ping
+   ```
+   You should receive a response of `PONG`.
+
+4. Test the Redis integration:
+   ```bash
+   python test_redis.py
+   ```
+
+## Configuration
+
+The system is configured through the `config.yaml` file. Key configuration sections include:
+
+### Model Configuration
+
+```yaml
+model_paths:
+  base_dir: models/
+  lightgbm: lightgbm_model.pkl
+  bilstm: bilstm_model.h5
+
+training_params:
+  lightgbm:
+    num_leaves: 31
+    learning_rate: 0.05
+    n_estimators: 100
+  bilstm:
+    epochs: 5
+    batch_size: 32
+    lstm_units: 64
+```
+
+### Data Source Configuration
+
+```yaml
+data_sources:
+  wazuh:
+    enabled: false
+    api_url: "https://wazuh.example.com:55000"
+    username: "wazuh-api-user"
+    password: "wazuh-api-password"
+    verify_ssl: false
+    fetch_interval: 60
+
+  elasticsearch:
+    enabled: false
+    hosts: ["localhost:9200"]
+    index_pattern: "winlogbeat-*"
+    username: "elastic"
+    password: "changeme"
+    verify_certs: false
+    fetch_interval: 60
+```
+
+### Behavioral Analytics Configuration
+
+```yaml
+settings:
+  behavioral_analytics:
+    baseline_period_days: 7
+    anomaly_threshold: 0.8
+    time_window_minutes: 10
+```
 
 ## Usage
 
-### Producing Messages to Kafka
+### Running the System
 
-Create a new file `produce_messages.py`:
+The system can be run in different modes depending on your requirements:
 
-```python
-from kafka import KafkaProducer
+#### Complete System
 
-def produce_messages():
-    producer = KafkaProducer(bootstrap_servers='localhost:9092')
-    for i in range(10):
-        message = f"Message {i}"
-        producer.send('apt_topic', value=message.encode('utf-8'))
-        print(f"Sent: {message}")
-    producer.flush()
-
-if __name__ == "__main__":
-    produce_messages()
+```bash
+python main.py --all
 ```
 
-Run the script to send messages to the Kafka topic:
+#### Training Models Only
 
-```sh
-python3 produce_messages.py
+```bash
+python main.py --train
 ```
 
-### Configuration
+#### Running Prediction Engine Only
 
-The system uses a `config.yaml` file for configuration. You can modify this file to customize various aspects of the system:
-
-```yaml
-# APT Detection System Configuration
-
-# Model paths for persistence
-model_paths:
-  lightgbm: models/saved/lightgbm_model.pkl
-  bilstm: models/saved/bilstm_model.h5
-  
-# Data paths
-data_paths:
-  dataset: synthetic_apt_dataset.csv
-  
-# Kafka configuration
-kafka:
-  bootstrap_servers: localhost:9092
-  topic: apt_topic
-  
-# Training parameters
-training:
-  test_size: 0.2
-  random_state: 42
-  
-# Dashboard configuration
-dashboard:
-  host: 127.0.0.1
-  port: 5000
-  debug: true
+```bash
+python main.py --predict
 ```
 
-### Running the Main Script
+#### Running Dashboard Only
 
-The main script now supports command-line arguments to run specific components:
-
-```sh
-# Run all components (training, prediction, dashboard)
-python3 main.py --all
-
-# Run only the training component
-python3 main.py --train
-
-# Run only the prediction engine
-python3 main.py --predict
-
-# Run only the dashboard
-python3 main.py --dashboard
-
-# Run training and prediction without the dashboard
-python3 main.py --train --predict
+```bash
+python main.py --dashboard
 ```
 
-If no arguments are provided, the system will run all components by default.
+### Testing with Sample Data
 
-### Model Persistence
+To test the system with sample data, you can use the provided script to produce test messages to Kafka:
 
-The system now supports saving and loading trained models:
+```bash
+python produce_messages.py
+```
 
-- Models are automatically saved after training to the paths specified in `config.yaml`
-- When running the prediction engine without training, models are loaded from disk
-- The dashboard includes a new page at `/models` that shows the status of saved models
+## Dashboard
 
-### Accessing the Dashboard
+The system includes a comprehensive dashboard for monitoring and analysis, accessible at `http://localhost:5000` when the dashboard is running.
 
-Open your web browser and go to `http://127.0.0.1:5000/` to view the dashboard. The dashboard now includes:
+### Dashboard Features
 
-- Main page with visualization plots
-- Plotly charts page with interactive visualizations
-- Models page showing the status of saved models
+- **Overview**: Alert statistics, timeline, and top entities
+- **Alerts**: Detailed alert information with filtering and MITRE ATT&CK mapping
+- **Entity Analysis**: Entity behavior statistics and anomaly detection
+- **Models**: Status of machine learning models and behavioral baselines
+- **Connectors**: Status and configuration of data source connectors
 
-## File Structure
+## Project Structure
 
 ```
 APT_Detection_System/
 ├── config.yaml                      # Configuration file
-├── dashboard/
-│   ├── __init__.py
-│   ├── app.py
-│   └── templates/
-│       ├── index.html               # Main dashboard page
-│       └── models.html              # Model status page
-├── data_preprocessing/
-│   ├── __init__.py
-│   ├── preprocess.py
+├── main.py                          # Main application entry point
+├── requirements.txt                 # Project dependencies
+├── README.md                        # Documentation
+├── REDIS_INTEGRATION.md             # Redis integration documentation
+├── redis_storage.py                 # Redis storage module
+├── dashboard/                       # Dashboard application
+│   ├── app.py                       # Flask application
+│   └── templates/                   # HTML templates
+├── data_preprocessing/              # Data preprocessing modules
 │   ├── data_cleaning.py
-│   └── feature_engineering.py
-├── evaluation/
-│   ├── __init__.py
-│   ├── evaluation_metrics.py
-│   └── cross_validation.py
-├── feature_selection/
-│   ├── __init__.py
+│   ├── feature_engineering.py
+│   ├── load_dataset.py
+│   └── preprocess.py
+├── data_balancing/                  # Data balancing modules
+│   └── hhosssa_smote.py             # SMOTE implementation
+├── evaluation/                      # Model evaluation modules
+│   ├── cross_validation.py
+│   └── evaluation_metrics.py
+├── feature_selection/               # Feature selection modules
 │   └── hhosssa_feature_selection.py
-├── data_balancing/
-│   ├── __init__.py
-│   └── hhosssa_smote.py
-├── models/
-│   ├── __init__.py
-│   ├── train_models.py              # Updated with model saving
-│   ├── lightgbm_model.py
+├── models/                          # Model definitions and saved models
 │   ├── bilstm_model.py
 │   ├── hybrid_classifier.py
-│   └── saved/                       # Directory for saved models
-│       ├── lightgbm_model.pkl       # Saved LightGBM model
-│       └── bilstm_model.h5          # Saved Bi-LSTM model
-├── real_time_detection/
-│   ├── __init__.py
+│   ├── lightgbm_model.py
+│   └── train_models.py
+├── real_time_detection/             # Real-time detection modules
+│   ├── behavioral_analytics.py
 │   ├── data_ingestion.py
-│   └── prediction_engine.py         # Updated with model loading
-├── visualization.py
-├── main.py                          # Updated with CLI arguments
-├── produce_messages.py
-└── requirements.txt                 # Updated with new dependencies
+│   ├── kafka_consumer.py
+│   ├── mitre_attack_mapping.py
+│   ├── prediction_engine.py
+│   ├── redis_integration.py         # Redis storage integration
+│   └── connectors/                  # Data source connectors
+│       ├── connector_manager.py
+│       ├── elasticsearch_connector.py
+│       └── wazuh_connector.py
+├── visualization.py                 # Visualization utilities
+│
+│ # Testing and Development Files
+├── test_mitre_attack.py             # Tests MITRE ATT&CK mapping
+├── test_redis.py                    # Tests Redis integration
+├── produce_messages.py              # Generates test Kafka messages
+├── sample_alert.json                # Sample alert format
+└── synthetic_apt_dataset.csv        # Sample dataset (excluded from Git)
 ```
 
-## Integrating Real-Time Data Sources for APT Detection
+### Production vs. Testing Files
 
-This guide provides detailed configurations for integrating various real-time data sources to enhance Advanced Persistent Threat (APT) detection capabilities.
+The repository is organized to clearly separate production code from testing utilities:
 
-### Table of Contents
-1. [Security Information and Event Management (SIEM)](#siem-systems)
-2. [Intrusion Detection Systems (IDS) and Intrusion Prevention Systems (IPS)](#ids-and-ips)
-3. [Endpoint Detection and Response (EDR)](#endpoint-detection-and-response-edr)
-4. [Threat Intelligence Feeds](#threat-intelligence-feeds)
-5. [Network Traffic Analysis](#network-traffic-analysis)
+#### Production Files
+- Core system modules (`main.py`, `config.yaml`, etc.)
+- All modules in the directories (`real_time_detection/`, `models/`, etc.)
+- Redis integration (`redis_storage.py`, `real_time_detection/redis_integration.py`)
+- Dashboard application (`dashboard/`)
 
-### SIEM Systems
+#### Testing/Development Files
+- Test scripts (`test_redis.py`, `test_mitre_attack.py`)
+- Sample data generation (`produce_messages.py`)
+- Sample data files (`sample_alert.json`, `synthetic_apt_dataset.csv`)
 
-#### Splunk
-1. **Install Splunk Forwarder**:
-   ```sh
-   wget -O splunkforwarder.tgz "https://download.splunk.com/products/universalforwarder/releases/8.1.3/linux/splunkforwarder-8.1.3-aeae3fe429ae-Linux-x86_64.tgz"
-   tar -xvf splunkforwarder.tgz
-   ./splunkforwarder/bin/splunk start --accept-license
-   ./splunkforwarder/bin/splunk enable boot-start
-   ```
+Large files like model binaries (*.h5, *.pkl) and the dataset CSV are excluded from the Git repository via .gitignore but can be generated using the provided scripts.
 
-2. **Configure Data Inputs**:
-   - Add data inputs through Splunk Web UI (Settings > Data Inputs).
-   - Monitor specific directories, files, or network ports.
+## Technical Details
 
-3. **Create Dashboards and Alerts**:
-   - Use the Splunk Search Processing Language (SPL) to create queries.
-   - Build dashboards in the Splunk Web UI (Dashboard > Create New Dashboard).
-   - Set up alerts (Alerts > Create New Alert) based on query results.
+### Machine Learning Models
 
-### IDS and IPS
+The system uses two primary models:
 
-#### Snort
-1. **Install Snort**:
-   ```sh
-   sudo apt-get install snort
-   ```
+1. **LightGBM**: A gradient boosting framework that uses tree-based learning algorithms
+2. **Bi-LSTM**: A bidirectional long short-term memory neural network for sequence analysis
 
-2. **Configure snort.conf**:
-   - Edit `/etc/snort/snort.conf` to set HOME_NET and EXTERNAL_NET.
-   - Define rule paths: `var RULE_PATH /etc/snort/rules`.
-   - Set output plugins for logging.
+These models are combined into a hybrid classifier that leverages the strengths of both approaches.
 
-3. **Update Rules**:
-   - Download rules from Snort.org or subscribe to rule updates.
-   - Place rule files in `/etc/snort/rules`.
+### Behavioral Analytics
 
-4. **Start Snort**:
-   ```sh
-   sudo snort -c /etc/snort/snort.conf -i eth0
-   ```
+The behavioral analytics module:
 
-5. **Log Management**:
-   - Configure Snort to log to a centralized log management system like Splunk or ELK Stack.
+1. Establishes baselines of normal behavior for entities
+2. Detects anomalies using the Isolation Forest algorithm
+3. Analyzes entity behavior patterns over time
+4. Identifies anomalous features contributing to alerts
 
-### Endpoint Detection and Response (EDR)
+### MITRE ATT&CK Integration
 
-#### CrowdStrike Falcon
-1. **Deploy Falcon Agent**:
-   - Obtain the Falcon installer from the CrowdStrike portal.
-   - Install on endpoints:
-     ```sh
-     sudo apt-get install falcon-sensor
-     sudo systemctl start falconsensor
-     sudo systemctl enable falconsensor
-     ```
+The system maps detected threats to the MITRE ATT&CK framework, providing:
 
-2. **Configure Policies**:
-   - In the CrowdStrike console, configure detection and prevention policies.
+1. Technique identification
+2. Tactic categorization
+3. Mitigation recommendations
+4. Contextual information for security analysts
 
-3. **Integrate with SIEM**:
-   - Use CrowdStrike API to pull event data into your SIEM.
+## Security Considerations
 
-4. **Set Alerts**:
-   - Configure alerts in the CrowdStrike console based on detection events.
+The APT Detection System is designed with security in mind:
 
-### Threat Intelligence Feeds
-
-#### AlienVault OTX
-1. **Create OTX Account**:
-   - Sign up at [AlienVault OTX](https://otx.alienvault.com).
-
-2. **Integrate with SIEM**:
-   - Use OTX API to integrate threat data with SIEM systems.
-
-3. **Set Alerts and Workflows**:
-   - In your SIEM, create correlation rules based on OTX indicators.
-
-### Network Traffic Analysis
-
-#### Zeek
-1. **Install Zeek**:
-   ```sh
-   sudo apt-get
-   ``` 
-2. **Configure Network Interfaces**:
-   - Edit `/usr/local/zeek/etc/node.cfg` to define network interfaces for monitoring.
-
-3. **Edit zeek.cfg**:
-   - Set paths for logs and scripts: `LogDir = /var/log/zeek`.
-
-4. **Deploy Scripts**:
-   - Use built-in and custom Zeek scripts for specific detections.
-
-5. **Integrate with SIEM**:
-   - Send Zeek logs to SIEM for correlation and analysis.
-
----
-
-By following these configurations, you can effectively integrate various real-time data sources to enhance your APT detection capabilities.
+- **Authentication**: Secure authentication for all data source connections
+- **Data Encryption**: Encryption of sensitive configuration data
+- **Input Validation**: Validation of all input data to prevent injection attacks
+- **Secure Defaults**: Secure default configurations for all components
 
 ## Contributing
 
-Contributions are welcome! Please open an issue or submit a pull request for any improvements or additions.
+Contributions are welcome! Please follow these steps:
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
 
 ## License
 
-This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for more details.
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## Acknowledgments
+
+- MITRE ATT&CK® for the comprehensive threat intelligence framework
+- The open-source community for the various libraries and tools used in this project

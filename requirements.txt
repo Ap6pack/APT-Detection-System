@@ -1,16 +1,58 @@
-numpy
-pandas
-scikit-learn
-lightgbm
-tensorflow
-keras
-flask
-kafka-python-ng
-kafka-python
-matplotlib
-plotly
-imbalanced-learn
-tensorrt
-six
-joblib
-pyyaml
+# Core data processing and analysis
+numpy>=1.20.0
+pandas>=1.3.0
+scikit-learn>=1.0.0
+scipy>=1.7.0
+
+# Machine learning models
+lightgbm>=3.3.0
+tensorflow>=2.8.0
+keras>=2.8.0
+
+# Web framework and API
+flask>=2.0.0
+flask-cors>=3.0.10
+werkzeug>=2.0.0
+
+# Message queue and storage
+kafka-python>=2.0.0
+redis>=4.3.0
+
+# Data visualization
+matplotlib>=3.5.0
+plotly>=5.5.0
+seaborn>=0.11.0
+
+# Data balancing and feature selection
+imbalanced-learn>=0.9.0
+
+# Utilities
+joblib>=1.1.0
+pyyaml>=6.0
+requests>=2.27.0
+python-dateutil>=2.8.0
+tqdm>=4.64.0
+
+# Data source connectors
+elasticsearch>=8.0.0
+# Note: Wazuh API is accessed directly via HTTP requests using the requests library
+
+# Security and authentication
+cryptography>=37.0.0
+pyjwt>=2.4.0
+
+# Behavioral analytics
+# Note: Using scikit-learn's IsolationForest implementation for anomaly detection
+pyod>=1.0.0  # Python Outlier Detection
+
+# MITRE ATT&CK integration
+stix2>=3.0.0
+taxii2-client>=2.3.0
+
+# Testing
+pytest>=7.0.0
+pytest-cov>=3.0.0
+
+# Documentation
+sphinx>=4.5.0
+sphinx-rtd-theme>=1.0.0

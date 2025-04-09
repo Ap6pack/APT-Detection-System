@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>APT Detection Alerts</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/css/bootstrap.min.css">
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 20px;
+            border-radius: 5px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+        h1, h2, h3 {
+            color: #333;
+        }
+        .nav {
+            margin-bottom: 20px;
+        }
+        .nav a {
+            margin-right: 15px;
+            color: #007bff;
+            text-decoration: none;
+        }
+        .nav a:hover {
+            text-decoration: underline;
+        }
+        .alert-card {
+            margin-bottom: 20px;
+            border-left: 5px solid #dc3545;
+            background-color: #fff;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+        .alert-card.critical {
+            border-left-color: #dc3545;
+        }
+        .alert-card.high {
+            border-left-color: #fd7e14;
+        }
+        .alert-card.medium {
+            border-left-color: #ffc107;
+        }
+        .alert-card.low {
+            border-left-color: #6c757d;
+        }
+        .alert-header {
+            padding: 15px;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .alert-body {
+            padding: 15px;
+        }
+        .alert-severity {
+            display: inline-block;
+            padding: 5px 10px;
+            border-radius: 3px;
+            color: white;
+            font-weight: bold;
+        }
+        .alert-severity.critical {
+            background-color: #dc3545;
+        }
+        .alert-severity.high {
+            background-color: #fd7e14;
+        }
+        .alert-severity.medium {
+            background-color: #ffc107;
+            color: #333;
+        }
+        .alert-severity.low {
+            background-color: #6c757d;
+        }
+        .mitre-tactic {
+            margin-bottom: 15px;
+        }
+        .mitre-technique {
+            margin-left: 20px;
+            margin-bottom: 5px;
+        }
+        .mitre-id {
+            font-family: monospace;
+            background-color: #f8f9fa;
+            padding: 2px 5px;
+            border-radius: 3px;
+            margin-right: 5px;
+        }
+        .feature-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .feature-table th, .feature-table td {
+            padding: 8px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        .feature-table th {
+            background-color: #f8f9fa;
+        }
+        .feature-value {
+            font-family: monospace;
+        }
+        .feature-value.high {
+            color: #dc3545;
+            font-weight: bold;
+        }
+        .no-alerts {
+            padding: 20px;
+            text-align: center;
+            background-color: #f8f9fa;
+            border-radius: 5px;
+            margin-top: 20px;
+        }
+        .refresh-btn {
+            margin-bottom: 20px;
+        }
+        .filter-card {
+            margin-bottom: 20px;
+        }
+        .filter-card .card-body {
+            padding: 15px;
+        }
+        .filter-form {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            align-items: flex-end;
+        }
+        .filter-form .form-group {
+            flex: 1;
+            min-width: 150px;
+        }
+        .filter-form .btn {
+            height: 38px;
+        }
+        .alert-count {
+            background-color: #f8f9fa;
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        .alert-count strong {
+            font-size: 1.2rem;
+        }
+        .entity-link {
+            color: #007bff;
+            text-decoration: none;
+            font-weight: bold;
+        }
+        .entity-link:hover {
+            text-decoration: underline;
+        }
+        .source-badge {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 3px;
+            font-size: 0.8rem;
+            background-color: #e9ecef;
+            color: #495057;
+            margin-right: 5px;
+        }
+        .source-badge.kafka {
+            background-color: #d4edda;
+            color: #155724;
+        }
+        .source-badge.connector {
+            background-color: #cce5ff;
+            color: #004085;
+        }
+        .source-badge.behavioral {
+            background-color: #d1ecf1;
+            color: #0c5460;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="nav">
+            <a href="/">Dashboard</a>
+            <a href="/alerts">Alerts</a>
+            <a href="/models">Models</a>
+            <a href="/connectors">Connectors</a>
+            <a href="/settings">Settings</a>
+        </div>
+        
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1>APT Detection Alerts</h1>
+            <button id="refreshBtn" class="btn btn-primary refresh-btn">Refresh Alerts</button>
+        </div>
+        
+        <div class="card filter-card">
+            <div class="card-header">Filter Alerts</div>
+            <div class="card-body">
+                <form class="filter-form" method="get" action="/alerts">
+                    <div class="form-group">
+                        <label for="severity" class="form-label">Severity</label>
+                        <select class="form-select" id="severity" name="severity">
+                            <option value="">All Severities</option>
+                            {% for severity in severities %}
+                                <option value="{{ severity }}" {% if severity == selected_severity %}selected{% endif %}>{{ severity }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="source_type" class="form-label">Source Type</label>
+                        <select class="form-select" id="source_type" name="source_type">
+                            <option value="">All Sources</option>
+                            {% for source_type in source_types %}
+                                <option value="{{ source_type }}" {% if source_type == selected_source_type %}selected{% endif %}>{{ source_type }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="entity" class="form-label">Entity</label>
+                        <select class="form-select" id="entity" name="entity">
+                            <option value="">All Entities</option>
+                            {% for entity in entities %}
+                                <option value="{{ entity }}" {% if entity == selected_entity %}selected{% endif %}>{{ entity }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="days" class="form-label">Time Range</label>
+                        <select class="form-select" id="days" name="days">
+                            <option value="1" {% if selected_days == 1 %}selected{% endif %}>Last 24 Hours</option>
+                            <option value="7" {% if selected_days == 7 %}selected{% endif %}>Last 7 Days</option>
+                            <option value="30" {% if selected_days == 30 %}selected{% endif %}>Last 30 Days</option>
+                            <option value="90" {% if selected_days == 90 %}selected{% endif %}>Last 90 Days</option>
+                        </select>
+                    </div>
+                    
+                    <div>
+                        <button type="submit" class="btn btn-primary">Apply Filters</button>
+                        <a href="/alerts" class="btn btn-outline-secondary">Clear Filters</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+        
+        <div class="alert-count">
+            <p>Showing <strong>{{ alerts|length }}</strong> alerts</p>
+        </div>
+        
+        <div id="alertsContainer">
+            {% if alerts %}
+                {% for alert in alerts %}
+                    <div class="alert-card {{ alert.severity|lower }}">
+                        <div class="alert-header">
+                            <div>
+                                <h3>
+                                    {% if alert.entity %}
+                                        <a href="/entity/{{ alert.entity }}" class="entity-link">{{ alert.entity }}</a>
+                                    {% else %}
+                                        Unknown Entity
+                                    {% endif %}
+                                </h3>
+                                <div>
+                                    <span class="source-badge {% if alert.source.type == 'kafka' %}kafka{% elif alert.source.type == 'connector' %}connector{% elif alert.source.type == 'behavioral_analytics' %}behavioral{% endif %}">
+                                        {{ alert.source.type|default('Unknown') }}
+                                    </span>
+                                    <small>{{ alert.timestamp }}</small>
+                                </div>
+                            </div>
+                            <span class="alert-severity {{ alert.severity|lower }}">{{ alert.severity }}</span>
+                        </div>
+                        <div class="alert-body">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <h4>Alert Details</h4>
+                                    <p><strong>Score:</strong> {{ "%.2f"|format(alert.prediction_score) }}</p>
+                                    
+                                    {% if alert.anomaly_score is defined %}
+                                        <p><strong>Anomaly Score:</strong> {{ "%.2f"|format(alert.anomaly_score) }}</p>
+                                    {% endif %}
+                                    
+                                    {% if alert.detection_type %}
+                                        <p><strong>Detection Type:</strong> {{ alert.detection_type }}</p>
+                                    {% endif %}
+                                    
+                                    {% if alert.models %}
+                                        <h4>Model Predictions</h4>
+                                        <ul>
+                                            {% for model_name, score in alert.models.items() %}
+                                                <li>{{ model_name }}: {{ "%.2f"|format(score) }}</li>
+                                            {% endfor %}
+                                        </ul>
+                                    {% endif %}
+                                    
+                                    {% if alert.features %}
+                                        <h4>Features</h4>
+                                        <table class="feature-table">
+                                            <thead>
+                                                <tr>
+                                                    <th>Feature</th>
+                                                    <th>Value</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {% for feature_name, value in alert.features.items() %}
+                                                    <tr>
+                                                        <td>{{ feature_name }}</td>
+                                                        <td class="feature-value {% if value >= 0.7 %}high{% endif %}">
+                                                            {{ "%.2f"|format(value) }}
+                                                        </td>
+                                                    </tr>
+                                                {% endfor %}
+                                            </tbody>
+                                        </table>
+                                    {% endif %}
+                                </div>
+                                
+                                <div class="col-md-6">
+                                    {% if alert.mitre_attack %}
+                                        <h4>MITRE ATT&CK TTPs</h4>
+                                        {% if alert.mitre_attack.tactics %}
+                                            {% for tactic in alert.mitre_attack.tactics %}
+                                                <div class="mitre-tactic">
+                                                    <h5>
+                                                        <span class="mitre-id">{{ tactic.id }}</span>
+                                                        {{ tactic.name }}
+                                                    </h5>
+                                                    {% for technique in tactic.techniques %}
+                                                        <div class="mitre-technique">
+                                                            <span class="mitre-id">{{ technique.id }}</span>
+                                                            {{ technique.name }}
+                                                        </div>
+                                                    {% endfor %}
+                                                </div>
+                                            {% endfor %}
+                                        {% elif alert.mitre_attack.techniques %}
+                                            <div class="mitre-tactic">
+                                                <h5>Techniques</h5>
+                                                {% for technique in alert.mitre_attack.techniques %}
+                                                    <div class="mitre-technique">
+                                                        <span class="mitre-id">{{ technique.id }}</span>
+                                                        {{ technique.name }}
+                                                    </div>
+                                                {% endfor %}
+                                            </div>
+                                        {% else %}
+                                            <p>No MITRE ATT&CK TTPs details available.</p>
+                                        {% endif %}
+                                    {% else %}
+                                        <h4>Behavioral Analysis</h4>
+                                        {% if alert.detection_type == 'behavioral_analytics' %}
+                                            <p>This alert was generated by behavioral analytics based on anomalous activity patterns.</p>
+                                            
+                                            {% if alert.features %}
+                                                <h5>Anomalous Features</h5>
+                                                <ul>
+                                                    {% for feature_name, value in alert.features.items() %}
+                                                        {% if value >= 0.7 %}
+                                                            <li>{{ feature_name }}: <span class="feature-value high">{{ "%.2f"|format(value) }}</span></li>
+                                                        {% endif %}
+                                                    {% endfor %}
+                                                </ul>
+                                            {% endif %}
+                                        {% else %}
+                                            <p>No MITRE ATT&CK TTPs identified.</p>
+                                        {% endif %}
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                {% endfor %}
+            {% else %}
+                <div class="no-alerts">
+                    <h3>No alerts found</h3>
+                    <p>No alerts match your current filter criteria.</p>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        document.getElementById('refreshBtn').addEventListener('click', function() {
+            // Preserve current filters when refreshing
+            location.reload();
+        });
+    </script>
+</body>
+</html>

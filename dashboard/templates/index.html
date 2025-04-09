@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>APT Detection Dashboard</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/css/bootstrap.min.css">
     <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
     <style>
         body {
@@ -13,20 +14,15 @@
             background-color: #f5f5f5;
         }
         .container {
-            max-width: 800px;
+            max-width: 1200px;
             margin: 0 auto;
             background-color: white;
             padding: 20px;
             border-radius: 5px;
             box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
         }
-        h1 {
+        h1, h2, h3 {
             color: #333;
-            border-bottom: 1px solid #eee;
-            padding-bottom: 10px;
-        }
-        .plot-container {
-            margin-bottom: 30px;
         }
         .nav {
             margin-bottom: 20px;
@@ -39,37 +35,302 @@
         .nav a:hover {
             text-decoration: underline;
         }
+        .plot-container {
+            margin-bottom: 30px;
+        }
+        .card {
+            margin-bottom: 20px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+        .card-header {
+            background-color: #f8f9fa;
+            font-weight: bold;
+        }
+        .stat-card {
+            text-align: center;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            color: white;
+        }
+        .stat-card h3 {
+            margin: 0;
+            font-size: 2rem;
+            color: white;
+        }
+        .stat-card p {
+            margin: 5px 0 0 0;
+            font-size: 1rem;
+        }
+        .stat-card.critical {
+            background-color: #dc3545;
+        }
+        .stat-card.high {
+            background-color: #fd7e14;
+        }
+        .stat-card.medium {
+            background-color: #ffc107;
+            color: #333;
+        }
+        .stat-card.low {
+            background-color: #6c757d;
+        }
+        .stat-card.total {
+            background-color: #007bff;
+        }
+        .alert-severity {
+            display: inline-block;
+            padding: 5px 10px;
+            border-radius: 3px;
+            color: white;
+            font-weight: bold;
+        }
+        .alert-severity.critical {
+            background-color: #dc3545;
+        }
+        .alert-severity.high {
+            background-color: #fd7e14;
+        }
+        .alert-severity.medium {
+            background-color: #ffc107;
+            color: #333;
+        }
+        .alert-severity.low {
+            background-color: #6c757d;
+        }
+        .alert-card {
+            margin-bottom: 15px;
+            border-left: 5px solid #dc3545;
+        }
+        .alert-card.high {
+            border-left-color: #dc3545;
+        }
+        .alert-card.medium {
+            border-left-color: #fd7e14;
+        }
+        .alert-card.low {
+            border-left-color: #ffc107;
+        }
+        .refresh-btn {
+            margin-bottom: 20px;
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="nav">
             <a href="/">Dashboard</a>
-            <a href="/plotly">Plotly Charts</a>
+            <a href="/alerts">Alerts</a>
             <a href="/models">Models</a>
+            <a href="/connectors">Connectors</a>
+            <a href="/settings">Settings</a>
         </div>
         
-        <h1>Welcome to the APT Detection Dashboard</h1>
-        <p>This is where you can monitor the system.</p>
-
-        <div class="plot-container">
-            <h2>Matplotlib Plot</h2>
-            <img src="data:image/png;base64, {{ plot_url }}" alt="Matplotlib Plot" style="max-width: 100%;">
-        </div>
-
-        <div class="plot-container">
-            <h2>Plotly Plot</h2>
-            <div id="plotly-div" style="width: 100%; height: 400px;"></div>
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1>APT Detection Dashboard</h1>
+            <button id="refreshBtn" class="btn btn-primary refresh-btn">Refresh Dashboard</button>
         </div>
         
-        <script>
-            fetch('/plotly')
-            .then(response => response.json())
-            .then(data => {
-                var plotDiv = document.getElementById('plotly-div');
-                Plotly.react(plotDiv, data.data, data.layout);
-            });
-        </script>
+        <div class="row">
+            <div class="col-md-12">
+                <div class="row">
+                    <div class="col-md-3">
+                        <div class="stat-card total">
+                            <h3>{{ alert_count }}</h3>
+                            <p>Total Alerts</p>
+                        </div>
+                    </div>
+                    <div class="col-md-2">
+                        <div class="stat-card critical">
+                            <h3>{{ severity_counts.Critical }}</h3>
+                            <p>Critical</p>
+                        </div>
+                    </div>
+                    <div class="col-md-2">
+                        <div class="stat-card high">
+                            <h3>{{ severity_counts.High }}</h3>
+                            <p>High</p>
+                        </div>
+                    </div>
+                    <div class="col-md-2">
+                        <div class="stat-card medium">
+                            <h3>{{ severity_counts.Medium }}</h3>
+                            <p>Medium</p>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="stat-card low">
+                            <h3>{{ severity_counts.Low }}</h3>
+                            <p>Low</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="row">
+            <div class="col-md-8">
+                <div class="card">
+                    <div class="card-header">Alert Timeline</div>
+                    <div class="card-body">
+                        <div id="timeline-plot" style="width: 100%; height: 400px;"></div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-header">Top Entities</div>
+                    <div class="card-body">
+                        <div id="entity-plot" style="width: 100%; height: 400px;"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="row">
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">Recent Alerts</div>
+                    <div class="card-body">
+                        {% if recent_alerts %}
+                            {% for alert in recent_alerts %}
+                                <div class="alert-card {{ alert.severity|lower }}">
+                                    <div class="card-body">
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <h5>
+                                                {% if alert.entity %}
+                                                    <a href="/entity/{{ alert.entity }}">{{ alert.entity }}</a>
+                                                {% else %}
+                                                    Unknown Entity
+                                                {% endif %}
+                                            </h5>
+                                            <span class="alert-severity {{ alert.severity|lower }}">{{ alert.severity }}</span>
+                                        </div>
+                                        
+                                        <p><strong>Time:</strong> {{ alert.timestamp }}</p>
+                                        <p><strong>Score:</strong> {{ "%.2f"|format(alert.prediction_score) }}</p>
+                                        
+                                        {% if alert.source %}
+                                            <p><strong>Source:</strong> {{ alert.source.type }}</p>
+                                        {% endif %}
+                                        
+                                        {% if alert.mitre_attack %}
+                                            <div>
+                                                <strong>MITRE ATT&CK:</strong>
+                                                {% for technique in alert.mitre_attack.techniques[:2] %}
+                                                    <span class="badge bg-secondary">{{ technique.id }}: {{ technique.name }}</span>
+                                                {% endfor %}
+                                            </div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            {% endfor %}
+                            
+                            <div class="text-center mt-3">
+                                <a href="/alerts" class="btn btn-outline-primary">View All Alerts</a>
+                            </div>
+                        {% else %}
+                            <p>No recent alerts.</p>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">Data Sources</div>
+                    <div class="card-body">
+                        <h5>Alert Sources</h5>
+                        <div class="mb-4">
+                            <div class="row">
+                                {% for source_type, count in source_counts.items() %}
+                                    <div class="col-md-4 mb-2">
+                                        <div class="card">
+                                            <div class="card-body text-center">
+                                                <h3>{{ count }}</h3>
+                                                <p>{{ source_type }}</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                {% else %}
+                                    <div class="col-12">
+                                        <p>No data sources available.</p>
+                                    </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        
+                        <h5>Monitored Entities</h5>
+                        <div>
+                            <div class="row">
+                                {% for entity, count in entity_counts.items() %}
+                                    {% if loop.index <= 6 %}
+                                        <div class="col-md-4 mb-2">
+                                            <div class="card">
+                                                <div class="card-body text-center">
+                                                    <h5><a href="/entity/{{ entity }}">{{ entity }}</a></h5>
+                                                    <p>{{ count }} alerts</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    {% endif %}
+                                {% else %}
+                                    <div class="col-12">
+                                        <p>No entities available.</p>
+                                    </div>
+                                {% endfor %}
+                            </div>
+                            
+                            {% if entity_counts|length > 6 %}
+                                <div class="text-center mt-3">
+                                    <button class="btn btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#moreEntities">
+                                        Show More Entities ({{ entity_counts|length - 6 }})
+                                    </button>
+                                </div>
+                                
+                                <div class="collapse mt-3" id="moreEntities">
+                                    <div class="row">
+                                        {% for entity, count in entity_counts.items() %}
+                                            {% if loop.index > 6 %}
+                                                <div class="col-md-4 mb-2">
+                                                    <div class="card">
+                                                        <div class="card-body text-center">
+                                                            <h5><a href="/entity/{{ entity }}">{{ entity }}</a></h5>
+                                                            <p>{{ count }} alerts</p>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            {% endif %}
+                                        {% endfor %}
+                                    </div>
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Parse the timeline plot data
+            var timelinePlotData = JSON.parse('{{ alert_timeline_plot|safe }}');
+            var timelinePlot = document.getElementById('timeline-plot');
+            Plotly.react(timelinePlot, timelinePlotData.data, timelinePlotData.layout);
+            
+            // Parse the entity plot data
+            var entityPlotData = JSON.parse('{{ entity_plot|safe }}');
+            var entityPlot = document.getElementById('entity-plot');
+            Plotly.react(entityPlot, entityPlotData.data, entityPlotData.layout);
+            
+            // Refresh button
+            document.getElementById('refreshBtn').addEventListener('click', function() {
+                location.reload();
+            });
+        });
+    </script>
 </body>
 </html>

@@ -1,0 +1,236 @@
+{
+  "prediction_score": 0.85,
+  "features": {
+    "network_traffic_volume_mean": 0.95,
+    "number_of_logins_mean": 0.4,
+    "number_of_failed_logins_mean": 0.85,
+    "number_of_accessed_files_mean": 0.3,
+    "number_of_email_sent_mean": 0.2,
+    "cpu_usage_mean": 0.9,
+    "memory_usage_mean": 0.5,
+    "disk_io_mean": 0.4,
+    "network_latency_mean": 0.3,
+    "number_of_processes_mean": 0.8
+  },
+  "severity": "High",
+  "models": {
+    "lgbm_model": 0.85,
+    "bilstm_model": 0.85
+  },
+  "mitre_attack": {
+    "techniques": [
+      {
+        "id": "T1078",
+        "name": "Valid Accounts",
+        "tactics": [
+          {
+            "id": "TA0001",
+            "name": "Initial Access"
+          },
+          {
+            "id": "TA0003",
+            "name": "Persistence"
+          },
+          {
+            "id": "TA0004",
+            "name": "Privilege Escalation"
+          },
+          {
+            "id": "TA0005",
+            "name": "Defense Evasion"
+          }
+        ]
+      },
+      {
+        "id": "T1110",
+        "name": "Brute Force",
+        "tactics": [
+          {
+            "id": "TA0006",
+            "name": "Credential Access"
+          }
+        ]
+      },
+      {
+        "id": "T1496",
+        "name": "Resource Hijacking",
+        "tactics": [
+          {
+            "id": "TA0040",
+            "name": "Impact"
+          }
+        ]
+      },
+      {
+        "id": "T1041",
+        "name": "Exfiltration Over C2 Channel",
+        "tactics": [
+          {
+            "id": "TA0010",
+            "name": "Exfiltration"
+          }
+        ]
+      },
+      {
+        "id": "T1059",
+        "name": "Command and Scripting Interpreter",
+        "tactics": [
+          {
+            "id": "TA0002",
+            "name": "Execution"
+          }
+        ]
+      },
+      {
+        "id": "T1071",
+        "name": "Application Layer Protocol",
+        "tactics": [
+          {
+            "id": "TA0011",
+            "name": "Command and Control"
+          }
+        ]
+      },
+      {
+        "id": "T1486",
+        "name": "Data Encrypted for Impact",
+        "tactics": [
+          {
+            "id": "TA0040",
+            "name": "Impact"
+          }
+        ]
+      },
+      {
+        "id": "T1105",
+        "name": "Ingress Tool Transfer",
+        "tactics": [
+          {
+            "id": "TA0011",
+            "name": "Command and Control"
+          }
+        ]
+      },
+      {
+        "id": "T1057",
+        "name": "Process Discovery",
+        "tactics": [
+          {
+            "id": "TA0007",
+            "name": "Discovery"
+          }
+        ]
+      }
+    ],
+    "tactics": [
+      {
+        "id": "TA0001",
+        "name": "Initial Access",
+        "techniques": [
+          {
+            "id": "T1078",
+            "name": "Valid Accounts"
+          }
+        ]
+      },
+      {
+        "id": "TA0003",
+        "name": "Persistence",
+        "techniques": [
+          {
+            "id": "T1078",
+            "name": "Valid Accounts"
+          }
+        ]
+      },
+      {
+        "id": "TA0004",
+        "name": "Privilege Escalation",
+        "techniques": [
+          {
+            "id": "T1078",
+            "name": "Valid Accounts"
+          }
+        ]
+      },
+      {
+        "id": "TA0005",
+        "name": "Defense Evasion",
+        "techniques": [
+          {
+            "id": "T1078",
+            "name": "Valid Accounts"
+          }
+        ]
+      },
+      {
+        "id": "TA0006",
+        "name": "Credential Access",
+        "techniques": [
+          {
+            "id": "T1110",
+            "name": "Brute Force"
+          }
+        ]
+      },
+      {
+        "id": "TA0040",
+        "name": "Impact",
+        "techniques": [
+          {
+            "id": "T1496",
+            "name": "Resource Hijacking"
+          },
+          {
+            "id": "T1486",
+            "name": "Data Encrypted for Impact"
+          }
+        ]
+      },
+      {
+        "id": "TA0010",
+        "name": "Exfiltration",
+        "techniques": [
+          {
+            "id": "T1041",
+            "name": "Exfiltration Over C2 Channel"
+          }
+        ]
+      },
+      {
+        "id": "TA0002",
+        "name": "Execution",
+        "techniques": [
+          {
+            "id": "T1059",
+            "name": "Command and Scripting Interpreter"
+          }
+        ]
+      },
+      {
+        "id": "TA0011",
+        "name": "Command and Control",
+        "techniques": [
+          {
+            "id": "T1071",
+            "name": "Application Layer Protocol"
+          },
+          {
+            "id": "T1105",
+            "name": "Ingress Tool Transfer"
+          }
+        ]
+      },
+      {
+        "id": "TA0007",
+        "name": "Discovery",
+        "techniques": [
+          {
+            "id": "T1057",
+            "name": "Process Discovery"
+          }
+        ]
+      }
+    ]
+  }
+}

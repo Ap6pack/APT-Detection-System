@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>APT Detection System - Models</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/css/bootstrap.min.css">
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -12,23 +13,34 @@
             background-color: #f5f5f5;
         }
         .container {
-            max-width: 800px;
+            max-width: 1200px;
             margin: 0 auto;
             background-color: white;
             padding: 20px;
             border-radius: 5px;
             box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
         }
-        h1 {
+        h1, h2, h3 {
             color: #333;
-            border-bottom: 1px solid #eee;
-            padding-bottom: 10px;
         }
-        .model-card {
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            padding: 15px;
-            margin-bottom: 15px;
+        .nav {
+            margin-bottom: 20px;
+        }
+        .nav a {
+            margin-right: 15px;
+            color: #007bff;
+            text-decoration: none;
+        }
+        .nav a:hover {
+            text-decoration: underline;
+        }
+        .card {
+            margin-bottom: 20px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+        .card-header {
+            background-color: #f8f9fa;
+            font-weight: bold;
         }
         .model-status {
             display: inline-block;
@@ -44,16 +56,21 @@
             background-color: #f8d7da;
             color: #721c24;
         }
-        .nav {
-            margin-bottom: 20px;
+        .baseline-model-card {
+            margin-bottom: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 10px;
         }
-        .nav a {
-            margin-right: 15px;
-            color: #007bff;
-            text-decoration: none;
+        .baseline-model-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
         }
-        .nav a:hover {
-            text-decoration: underline;
+        .baseline-model-entity {
+            font-weight: bold;
+            font-size: 1.1rem;
         }
     </style>
 </head>
@@ -61,41 +78,140 @@
     <div class="container">
         <div class="nav">
             <a href="/">Dashboard</a>
-            <a href="/plotly">Plotly Charts</a>
+            <a href="/alerts">Alerts</a>
             <a href="/models">Models</a>
+            <a href="/connectors">Connectors</a>
+            <a href="/settings">Settings</a>
         </div>
         
-        <h1>Saved Models</h1>
+        <h1>Detection Models</h1>
+        <p>This page shows the available models used by the APT detection system.</p>
         
-        <div class="model-card">
-            <h2>LightGBM Model</h2>
-            <p>A gradient boosting framework that uses tree-based learning algorithms.</p>
-            <div class="model-status {% if model_info.lightgbm %}status-available{% else %}status-unavailable{% endif %}">
-                {% if model_info.lightgbm %}
-                    Available
-                {% else %}
-                    Not Available
-                {% endif %}
+        <div class="row">
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">Machine Learning Models</div>
+                    <div class="card-body">
+                        <div class="mb-4">
+                            <h3>LightGBM Model</h3>
+                            <p>A gradient boosting framework that uses tree-based learning algorithms.</p>
+                            <div class="model-status {% if model_info.lightgbm.exists %}status-available{% else %}status-unavailable{% endif %}">
+                                {% if model_info.lightgbm.exists %}
+                                    Available
+                                {% else %}
+                                    Not Available
+                                {% endif %}
+                            </div>
+                            {% if model_info.lightgbm.exists %}
+                                <p><strong>Path:</strong> {{ model_info.lightgbm.path }}</p>
+                                <p><strong>Size:</strong> {{ model_info.lightgbm.size }}</p>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="mb-4">
+                            <h3>Bi-LSTM Model</h3>
+                            <p>A bidirectional LSTM neural network for sequence modeling.</p>
+                            <div class="model-status {% if model_info.bilstm.exists %}status-available{% else %}status-unavailable{% endif %}">
+                                {% if model_info.bilstm.exists %}
+                                    Available
+                                {% else %}
+                                    Not Available
+                                {% endif %}
+                            </div>
+                            {% if model_info.bilstm.exists %}
+                                <p><strong>Path:</strong> {{ model_info.bilstm.path }}</p>
+                                <p><strong>Size:</strong> {{ model_info.bilstm.size }}</p>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="mb-4">
+                            <h3>Hybrid Model</h3>
+                            <p>A combination of LightGBM and Bi-LSTM models for improved performance.</p>
+                            <p><em>Note: The hybrid model is created at runtime by combining the LightGBM and Bi-LSTM models.</em></p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="card">
+                    <div class="card-header">MITRE ATT&CK Integration</div>
+                    <div class="card-body">
+                        <p>The system includes MITRE ATT&CK TTP (Tactics, Techniques, and Procedures) tagging for alerts.</p>
+                        <p>This integration maps detection patterns to the MITRE ATT&CK framework, providing better context for security analysts.</p>
+                        <p>Key features:</p>
+                        <ul>
+                            <li>Automatic mapping of anomalous features to MITRE ATT&CK techniques</li>
+                            <li>Grouping of techniques by tactics for better understanding of attack patterns</li>
+                            <li>Severity classification based on prediction scores</li>
+                            <li>Detailed alert view with MITRE ATT&CK information</li>
+                        </ul>
+                        <p>View the <a href="/alerts">Alerts page</a> to see MITRE ATT&CK TTPs for detected threats.</p>
+                    </div>
+                </div>
             </div>
-        </div>
-        
-        <div class="model-card">
-            <h2>Bi-LSTM Model</h2>
-            <p>A bidirectional LSTM neural network for sequence modeling.</p>
-            <div class="model-status {% if model_info.bilstm %}status-available{% else %}status-unavailable{% endif %}">
-                {% if model_info.bilstm %}
-                    Available
-                {% else %}
-                    Not Available
-                {% endif %}
+            
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">Behavioral Analytics Models</div>
+                    <div class="card-body">
+                        <p>Behavioral analytics models establish baselines of normal behavior for entities and detect anomalies.</p>
+                        
+                        {% if baseline_models %}
+                            <h3>Entity Baseline Models</h3>
+                            <p>The following entity baseline models are available:</p>
+                            
+                            {% for model in baseline_models %}
+                                <div class="baseline-model-card">
+                                    <div class="baseline-model-header">
+                                        <span class="baseline-model-entity">{{ model.entity }}</span>
+                                        <div class="model-status {% if model.model_exists %}status-available{% else %}status-unavailable{% endif %}">
+                                            {% if model.model_exists %}
+                                                Available
+                                            {% else %}
+                                                Not Available
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                    
+                                    {% if model.model_exists %}
+                                        <p><strong>Model:</strong> {% if model.model_exists %}Yes{% else %}No{% endif %}</p>
+                                        <p><strong>Scaler:</strong> {% if model.scaler_exists %}Yes{% else %}No{% endif %}</p>
+                                        <p><strong>Size:</strong> {{ model.model_size }}</p>
+                                    {% endif %}
+                                </div>
+                            {% endfor %}
+                        {% else %}
+                            <div class="alert alert-warning">
+                                <p>No baseline models have been created yet.</p>
+                                <p>Baseline models are created automatically when the system has collected enough data to establish normal behavior patterns.</p>
+                            </div>
+                        {% endif %}
+                        
+                        <h3>Anomaly Detection</h3>
+                        <p>The system uses Isolation Forest algorithm to detect anomalies in entity behavior.</p>
+                        <p>Key features:</p>
+                        <ul>
+                            <li>Automatic baseline establishment from historical data</li>
+                            <li>Entity-specific behavioral models</li>
+                            <li>Real-time anomaly detection</li>
+                            <li>Anomaly scoring and severity classification</li>
+                        </ul>
+                        
+                        <div class="alert alert-info">
+                            <p><strong>How it works:</strong></p>
+                            <ol>
+                                <li>The system collects data from various sources (EDR, SIEM, etc.)</li>
+                                <li>Features are extracted and aggregated into time windows</li>
+                                <li>Baseline models are trained on historical data</li>
+                                <li>New data is compared against the baseline to detect anomalies</li>
+                                <li>Anomalies are scored and alerts are generated</li>
+                            </ol>
+                        </div>
+                    </div>
+                </div>
             </div>
-        </div>
-        
-        <div class="model-card">
-            <h2>Hybrid Model</h2>
-            <p>A combination of LightGBM and Bi-LSTM models for improved performance.</p>
-            <p><em>Note: The hybrid model is created at runtime by combining the LightGBM and Bi-LSTM models.</em></p>
         </div>
     </div>
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
