@@ -248,22 +248,25 @@ class PredictionEngine:
                     self.logger.warning("No data available for prediction")
                     return result
             
+            # Define expected feature names
+            expected_features = [
+                'network_traffic_volume_mean',
+                'number_of_logins_mean',
+                'number_of_failed_logins_mean',
+                'number_of_accessed_files_mean',
+                'number_of_email_sent_mean',
+                'cpu_usage_mean',
+                'memory_usage_mean',
+                'disk_io_mean',
+                'network_latency_mean',
+                'number_of_processes_mean'
+            ]
+            
             # If data is a numpy array, convert to DataFrame
             if isinstance(data, np.ndarray):
                 if feature_names is None:
-                    # Default feature names
-                    feature_names = [
-                        'network_traffic_volume_mean',
-                        'number_of_logins_mean',
-                        'number_of_failed_logins_mean',
-                        'number_of_accessed_files_mean',
-                        'number_of_email_sent_mean',
-                        'cpu_usage_mean',
-                        'memory_usage_mean',
-                        'disk_io_mean',
-                        'network_latency_mean',
-                        'number_of_processes_mean'
-                    ]
+                    # Use default feature names
+                    feature_names = expected_features
                 
                 # Convert to DataFrame
                 data_df = pd.DataFrame(data, columns=feature_names)
@@ -277,6 +280,22 @@ class PredictionEngine:
                     data_df['time_window'] = datetime.now()
             else:
                 data_df = data
+                
+            # Validate data types and handle feature name mismatches
+            if data_df is not None and not data_df.empty:
+                # Log the data shape and columns for debugging
+                self.logger.debug(f"Input data shape: {data_df.shape}, columns: {data_df.columns.tolist()}")
+                
+                # Ensure all expected features are present
+                for feature in expected_features:
+                    if feature not in data_df.columns:
+                        self.logger.warning(f"Missing expected feature: {feature}, adding with default values")
+                        data_df[feature] = 0.0
+                
+                # Convert all feature columns to numeric
+                for feature in expected_features:
+                    if feature in data_df.columns:
+                        data_df[feature] = pd.to_numeric(data_df[feature], errors='coerce').fillna(0.0)
             
             # Apply behavioral analytics for anomaly detection
             data_with_scores, anomaly_alerts = self.behavioral_analytics.detect_anomalies(data_df, entity_column=entity_column)
@@ -334,22 +353,40 @@ class PredictionEngine:
             
             # If we have anomaly alerts but no ML model alerts, add them to the alerts list
             if not result['alerts'] and anomaly_alerts:
+                # Import here to avoid circular imports
+                from .mitre_attack_mapping import enrich_alert_with_mitre_attack
+                
                 for anomaly in anomaly_alerts:
                     # Create alert from anomaly
                     alert = {
                         'entity': anomaly['entity'],
+                        'entity_type': anomaly.get('entity_type', 'host'),
                         'timestamp': anomaly['timestamp'],
                         'severity': anomaly['severity'],
                         'anomaly_score': anomaly['anomaly_score'],
                         'features': anomaly['features'],
                         'prediction_score': anomaly['anomaly_score'],  # Use anomaly score as prediction score
-                        'detection_type': 'behavioral_analytics'
+                        'detection_type': 'behavioral_analytics',
+                        'event_type': anomaly.get('event_type', '')
                     }
+                    
+                    # Log alert details for debugging
+                    self.logger.info(f"Creating behavioral analytics alert for {alert['entity']} with detection_type: {alert['detection_type']}")
+                    
+                    # Enrich with MITRE ATT&CK information
+                    alert = enrich_alert_with_mitre_attack(alert)
                     
                     # Add to alerts list
                     result['alerts'].append(alert)
                     
-                    self.logger.info(f"Anomaly alert generated for {alert['entity']} with severity: {alert['severity']}")
+                    # Log alert generation with MITRE ATT&CK info if available
+                    if 'mitre_attack' in alert and alert['mitre_attack']['techniques']:
+                        techniques = alert['mitre_attack']['techniques']
+                        self.logger.info(f"Anomaly alert generated for {alert['entity']} with severity: {alert['severity']} and {len(techniques)} MITRE ATT&CK techniques")
+                        for technique in techniques[:3]:  # Log first 3 techniques
+                            self.logger.info(f"- {technique['id']}: {technique['name']}")
+                    else:
+                        self.logger.info(f"Anomaly alert generated for {alert['entity']} with severity: {alert['severity']} (no MITRE ATT&CK techniques identified)")
             
             return result
             

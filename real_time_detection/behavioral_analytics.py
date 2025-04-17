@@ -277,8 +277,16 @@ class BehavioralAnalytics:
                 
                 # Check if we have a baseline model for this entity
                 if entity not in self.baseline_models:
-                    self.logger.warning(f"No baseline model for entity {entity}, skipping anomaly detection")
-                    continue
+                    self.logger.warning(f"No baseline model for entity {entity}, creating one on-the-fly")
+                    
+                    # Create a baseline model for this entity using the current data
+                    # This is a simplified baseline, but better than nothing
+                    self._create_baseline_for_entity(entity, entity_data, numeric_features)
+                    
+                    # If we still don't have a model (creation failed), skip this entity
+                    if entity not in self.baseline_models:
+                        self.logger.warning(f"Failed to create baseline model for entity {entity}, skipping anomaly detection")
+                        continue
                 
                 # Get model and scaler for this entity
                 model = self.baseline_models[entity]
@@ -314,6 +322,7 @@ class BehavioralAnalytics:
                             'timestamp': row_data.get('time_window', datetime.now()),
                             'entity': entity,
                             'entity_type': entity_column,
+                            'event_type': row_data.get('event_type', ''),
                             'anomaly_score': float(score),
                             'features': {},
                             'severity': self._calculate_severity(score)
@@ -335,10 +344,78 @@ class BehavioralAnalytics:
                 
             except Exception as e:
                 self.logger.error(f"Error detecting anomalies for entity {entity}: {str(e)}")
+                import traceback
+                self.logger.error(traceback.format_exc())
         
         self.logger.info(f"Total anomalies detected: {len(anomaly_alerts)}")
         
         return result_data, anomaly_alerts
+        
+    def _create_baseline_for_entity(self, entity: str, entity_data: pd.DataFrame, features: List[str]) -> None:
+        """
+        Create a baseline model for an entity using the provided data.
+        
+        Args:
+            entity: Entity to create baseline for
+            entity_data: DataFrame containing data for this entity
+            features: List of feature names to use for the baseline
+        """
+        try:
+            self.logger.info(f"Creating baseline model for entity {entity} using {len(entity_data)} data points")
+            
+            # Select numeric features
+            X = entity_data[features].select_dtypes(include=['number'])
+            
+            # Handle missing values
+            X = X.fillna(0)
+            
+            # Need enough data points for a meaningful model
+            if len(X) < 5:
+                self.logger.warning(f"Not enough data points for entity {entity}, using default model")
+                # Create a default model with some reasonable parameters
+                model = IsolationForest(
+                    n_estimators=100,
+                    max_samples='auto',
+                    contamination=0.1,
+                    random_state=42
+                )
+                # Fit with some synthetic data that's close to normal
+                synthetic_data = np.random.normal(0.3, 0.1, size=(100, len(features)))
+                model.fit(synthetic_data)
+                
+                # Create a scaler that centers around typical values
+                scaler = StandardScaler()
+                scaler.fit(synthetic_data)
+            else:
+                # Scale the data
+                scaler = StandardScaler()
+                X_scaled = scaler.fit_transform(X)
+                
+                # Train isolation forest model
+                model = IsolationForest(
+                    n_estimators=100,
+                    max_samples='auto',
+                    contamination=0.1,
+                    random_state=42
+                )
+                model.fit(X_scaled)
+            
+            # Store model and scaler for this entity
+            self.baseline_models[entity] = model
+            self.baseline_scalers[entity] = scaler
+            
+            # Save the updated models to disk
+            try:
+                self.save_baseline_models()
+            except Exception as save_error:
+                self.logger.warning(f"Failed to save baseline model for entity {entity}: {str(save_error)}")
+            
+            self.logger.info(f"Successfully created baseline model for entity {entity}")
+            
+        except Exception as e:
+            self.logger.error(f"Error creating baseline for entity {entity}: {str(e)}")
+            import traceback
+            self.logger.error(traceback.format_exc())
     
     def analyze_entity_behavior(
         self, 

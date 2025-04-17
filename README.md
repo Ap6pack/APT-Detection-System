@@ -17,6 +17,7 @@ The APT Detection System is designed to identify and respond to advanced persist
 - **Behavioral Analysis**: Establishes baselines and detects anomalies in entity behavior
 - **MITRE ATT&CK Mapping**: Automatically maps threats to the MITRE ATT&CK framework
 - **Interactive Dashboard**: Provides comprehensive visualization and analysis tools
+- **Security Event Simulation**: Generates realistic security events for testing and development
 
 ## Architecture
 
@@ -115,35 +116,44 @@ graph TD;
 
    > **Note**: Zookeeper is included in the Kafka distribution. You don't need to download Zookeeper separately.
 
-2. Start Zookeeper and Kafka servers:
+2. **Automatic Kafka Management**:
+   The system now automatically manages Kafka and ZooKeeper:
+   
+   - When you run `python main.py --all`, the system will:
+     - Check if Kafka and ZooKeeper are running
+     - Start them automatically if they're not running
+     - Handle cluster ID mismatches by cleaning up and restarting Kafka when needed
+     - Create the necessary Kafka topic if it doesn't exist
+   
+   > **Note**: You no longer need to manually start Kafka and ZooKeeper before running the system.
+
+3. **Manual Kafka Management** (if needed):
+   If you prefer to manage Kafka manually, you can still do so:
+   
    ```bash
    # Navigate to the Kafka directory
-   cd kafka_2.13-3.5.1
+   cd kafka_2.13-3.8.0
    
    # Start Zookeeper first
    ./bin/zookeeper-server-start.sh config/zookeeper.properties
    
    # In a new terminal, start Kafka
    ./bin/kafka-server-start.sh config/server.properties
-   ```
-
-3. In a new terminal, create a topic for APT detection:
-   ```bash
-   ./bin/kafka-topics.sh --create --topic apt-topic --bootstrap-server localhost:9092 --partitions 1 --replication-factor 1
-   ```
-
-4. Verify the topic was created:
-   ```bash
+   
+   # Create the topic (if it doesn't exist)
+   ./bin/kafka-topics.sh --create --topic apt_topic --bootstrap-server localhost:9092 --partitions 1 --replication-factor 1
+   
+   # Verify the topic was created
    ./bin/kafka-topics.sh --list --bootstrap-server localhost:9092
    ```
 
-5. Troubleshooting Kafka:
+4. Troubleshooting Kafka:
    - If Kafka server quits unexpectedly, check the following:
      - Ensure Zookeeper is running before starting Kafka
      - Increase memory allocation: `export KAFKA_HEAP_OPTS="-Xmx512M -Xms512M"`
      - Check for port conflicts on 9092 (Kafka) and 2181 (Zookeeper)
      - Verify logs in `logs/server.log` for specific error messages
-     - Try running in foreground mode for more visible errors: `./bin/kafka-server-start.sh -daemon config/server.properties`
+     - For cluster ID mismatches, the system will automatically handle cleanup and restart
 
 #### Wazuh EDR Integration
 
@@ -256,29 +266,74 @@ settings:
 
 The system can be run in different modes depending on your requirements:
 
-#### Complete System
+#### Production Mode
+
+```bash
+# Using the production script
+./run_production.sh
+
+# Or manually
+python main.py --production
+```
+
+This will:
+- Start the real-time detection engine with real data sources
+- Start the dashboard
+- Disable simulation mode
+- Configure the system for production use
+
+For detailed production deployment instructions, see [PRODUCTION.md](PRODUCTION.md).
+
+#### Development/Testing Modes
+
+##### Complete System (with Simulation)
 
 ```bash
 python main.py --all
 ```
 
-#### Training Models Only
+This will:
+- Start Kafka and ZooKeeper automatically if they're not running
+- Train models if they don't exist
+- Start the real-time detection engine
+- Start the dashboard
+- Start the simulation system
+
+##### Training Models Only
 
 ```bash
 python main.py --train
 ```
 
-#### Running Prediction Engine Only
+##### Running Prediction Engine Only
 
 ```bash
 python main.py --predict
 ```
 
-#### Running Dashboard Only
+This will start the real-time detection engine and automatically manage Kafka and ZooKeeper.
+
+##### Running Dashboard Only
 
 ```bash
 python main.py --dashboard
 ```
+
+##### Running Simulation Only
+
+```bash
+python main.py --simulation
+```
+
+This will start the simulation system and automatically manage Kafka and ZooKeeper.
+
+##### Running Simulation with Dashboard
+
+```bash
+python main.py --simulation --dashboard
+```
+
+This will start both the simulation system and dashboard, and automatically manage Kafka and ZooKeeper.
 
 ### Testing with Sample Data
 
@@ -286,6 +341,27 @@ To test the system with sample data, you can use the provided script to produce 
 
 ```bash
 python produce_messages.py
+```
+
+### Running the Standalone Simulation
+
+The simulation system can also be run standalone:
+
+```bash
+# Run with default configuration
+python simulation_runner.py
+
+# Run with a specific event rate
+python simulation_runner.py --rate 10
+
+# Run with a specific realism level
+python simulation_runner.py --realism advanced
+
+# Run a specific scenario
+python simulation_runner.py --scenario data_exfiltration
+
+# Run for a specific duration (in minutes)
+python simulation_runner.py --duration 30
 ```
 
 ## Dashboard
@@ -308,6 +384,9 @@ APT_Detection_System/
 ├── main.py                          # Main application entry point
 ├── requirements.txt                 # Project dependencies
 ├── README.md                        # Documentation
+├── PRODUCTION.md                    # Production deployment guide
+├── run_production.sh                # Production startup script
+├── apt_detection.log                # Application log file
 ├── REDIS_INTEGRATION.md             # Redis integration documentation
 ├── redis_storage.py                 # Redis storage module
 ├── dashboard/                       # Dashboard application
@@ -341,6 +420,26 @@ APT_Detection_System/
 │       ├── connector_manager.py
 │       ├── elasticsearch_connector.py
 │       └── wazuh_connector.py
+├── simulation/                      # Security event simulation system
+│   ├── config.py                    # Simulation configuration
+│   ├── simulator.py                 # Main simulation coordinator
+│   ├── entities/                    # Simulated entities
+│   │   ├── entity.py                # Base entity class
+│   │   ├── host.py                  # Host entity
+│   │   └── user.py                  # User entity
+│   ├── generators/                  # Event generators
+│   │   ├── base_generator.py        # Base generator class
+│   │   ├── network_events.py        # Network event generator
+│   │   ├── endpoint_events.py       # Endpoint event generator
+│   │   └── user_events.py           # User event generator
+│   ├── scenarios/                   # Attack scenarios
+│   │   ├── base_scenario.py         # Base scenario class
+│   │   └── basic_scenarios.py       # Basic attack scenarios
+│   └── output/                      # Output adapters
+│       ├── base_output.py           # Base output class
+│       ├── redis_output.py          # Redis output adapter
+│       └── kafka_output.py          # Kafka output adapter
+├── simulation_runner.py             # Standalone simulation runner
 ├── visualization.py                 # Visualization utilities
 │
 │ # Testing and Development Files

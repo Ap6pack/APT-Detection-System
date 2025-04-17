@@ -1,4 +1,4 @@
-# APT Detection System Configuration
+# APT Detection System Configuration - PRODUCTION READY
 
 model_paths:
   base_dir: models/
@@ -27,43 +27,86 @@ data_paths:
 data_sources:
   # Wazuh EDR connector configuration
   wazuh:
-    enabled: false  # Set to true to enable Wazuh integration
+    enabled: true  # Enabled for production
     api_url: "https://wazuh.example.com:55000"
     username: "wazuh-api-user"
     password: "wazuh-api-password"
-    verify_ssl: false
+    verify_ssl: true
     fetch_interval: 60  # Seconds between fetches
 
   # Elasticsearch SIEM connector configuration
   elasticsearch:
-    enabled: false  # Set to true to enable Elasticsearch integration
+    enabled: true  # Enabled for production
     hosts: ["localhost:9200"]
     index_pattern: "winlogbeat-*"
     username: "elastic"
     password: "changeme"
-    verify_certs: false
+    verify_certs: true
     fetch_interval: 60  # Seconds between fetches
 
 kafka:
   bootstrap_servers: localhost:9092
   topic: apt_topic
+  # Production Kafka settings
+  group_id: apt_detection_group
+  auto_offset_reset: earliest
+  enable_auto_commit: true
+  session_timeout_ms: 30000
+  request_timeout_ms: 40000
 
 dashboard:
-  host: 127.0.0.1
+  host: 0.0.0.0  # Allow external connections in production
   port: 5000
-  debug: true
+  debug: false  # Disable debug mode in production
 
 settings:
-  overwrite_models: true
+  overwrite_models: false  # Don't overwrite models in production
   log_level: INFO
   # Data collection settings
   collection_interval_seconds: 60  # How often to collect data from connectors
   # Behavioral analytics settings
   behavioral_analytics:
     baseline_period_days: 7    # Days of data to use for baseline
-    anomaly_threshold: 0.8     # Threshold for anomaly detection (0.0-1.0)
+    anomaly_threshold: 0.6     # Threshold for anomaly detection (0.0-1.0)
     time_window_minutes: 10    # Time window for feature aggregation
   # Alert settings
   alerts:
-    max_alerts: 1000           # Maximum number of alerts to store in memory
-    retention_days: 30         # How long to keep alerts (for database implementation)
+    max_alerts: 10000          # Increased for production
+    retention_days: 90         # Increased retention for production
+
+# Simulation configuration - DISABLED FOR PRODUCTION
+simulation:
+  enabled: false               # Disabled for production
+  realism_level: "basic"
+  output:
+    type: "kafka"
+    redis_key: "apt:alerts"
+    kafka_topic: "apt_topic"
+  entities:
+    hosts:
+      count: 10
+      prefix: "host"
+    users:
+      count: 20
+      prefix: "user"
+    networks:
+      count: 3
+      subnets: ["192.168.1.0/24", "10.0.0.0/24", "172.16.0.0/24"]
+  events:
+    rate: 5
+    distribution:
+      network: 0.4
+      endpoint: 0.4
+      user: 0.2
+  scenarios:
+    enabled: false
+    frequency: "medium"
+    concurrent: 2
+  time_patterns:
+    enabled: false
+    business_hours:
+      start: 9
+      end: 17
+      days: [0, 1, 2, 3, 4]
+  adaptive_behavior:
+    enabled: false

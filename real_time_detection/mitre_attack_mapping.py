@@ -8,6 +8,7 @@ Tactics, Techniques, and Procedures (TTPs).
 import json
 import os
 import yaml
+import logging
 from typing import Dict, List, Any, Optional
 
 # Define MITRE ATT&CK tactics
@@ -58,31 +59,51 @@ TECHNIQUES = {
 # Define feature-to-technique mappings
 # This maps behavioral features to potential MITRE ATT&CK techniques
 FEATURE_TECHNIQUE_MAPPING = {
-    'network_traffic_volume_mean': ['T1071', 'T1105', 'T1041'],
-    'number_of_logins_mean': ['T1078'],
-    'number_of_failed_logins_mean': ['T1078', 'T1110'],
-    'number_of_accessed_files_mean': ['T1005', 'T1083'],
-    'number_of_email_sent_mean': ['T1566', 'T1114'],
-    'cpu_usage_mean': ['T1486', 'T1496'],
-    'memory_usage_mean': ['T1055', 'T1559'],
-    'disk_io_mean': ['T1005', 'T1560', 'T1486'],
-    'network_latency_mean': ['T1071', 'T1095'],
-    'number_of_processes_mean': ['T1057', 'T1059']
+    'network_traffic_volume_mean': ['T1071', 'T1105', 'T1041', 'T1095', 'T1571'],
+    'number_of_logins_mean': ['T1078', 'T1021', 'T1133'],
+    'number_of_failed_logins_mean': ['T1078', 'T1110', 'T1187', 'T1212'],
+    'number_of_accessed_files_mean': ['T1005', 'T1083', 'T1213', 'T1530', 'T1537'],
+    'number_of_email_sent_mean': ['T1566', 'T1114', 'T1048', 'T1534'],
+    'cpu_usage_mean': ['T1486', 'T1496', 'T1489', 'T1490', 'T1561'],
+    'memory_usage_mean': ['T1055', 'T1559', 'T1562', 'T1497'],
+    'disk_io_mean': ['T1005', 'T1560', 'T1486', 'T1074', 'T1115'],
+    'network_latency_mean': ['T1071', 'T1095', 'T1571', 'T1572'],
+    'number_of_processes_mean': ['T1057', 'T1059', 'T1106', 'T1204', 'T1569']
 }
 
 # Define threshold values for anomaly detection
 # These thresholds determine when a feature value is considered anomalous
 ANOMALY_THRESHOLDS = {
-    'network_traffic_volume_mean': 0.8,
-    'number_of_logins_mean': 0.7,
-    'number_of_failed_logins_mean': 0.6,
-    'number_of_accessed_files_mean': 0.7,
-    'number_of_email_sent_mean': 0.8,
-    'cpu_usage_mean': 0.8,
-    'memory_usage_mean': 0.7,
-    'disk_io_mean': 0.7,
-    'network_latency_mean': 0.6,
-    'number_of_processes_mean': 0.7
+    'network_traffic_volume_mean': 0.7,
+    'number_of_logins_mean': 0.6,
+    'number_of_failed_logins_mean': 0.5,
+    'number_of_accessed_files_mean': 0.6,
+    'number_of_email_sent_mean': 0.7,
+    'cpu_usage_mean': 0.7,
+    'memory_usage_mean': 0.6,
+    'disk_io_mean': 0.6,
+    'network_latency_mean': 0.5,
+    'number_of_processes_mean': 0.6
+}
+
+# Define event type to technique mappings for behavioral analytics
+# This helps map specific event types to relevant techniques
+EVENT_TYPE_TECHNIQUE_MAPPING = {
+    'process': ['T1059', 'T1106', 'T1204', 'T1569'],
+    'network_connection': ['T1071', 'T1095', 'T1571'],
+    'authentication': ['T1078', 'T1110'],
+    'file': ['T1005', 'T1083', 'T1074'],
+    'dns_query': ['T1071', 'T1189', 'T1598'],
+    'service': ['T1543', 'T1569'],
+    'login': ['T1078', 'T1021']
+}
+
+# Define entity type to tactic mappings
+# This helps prioritize tactics based on the entity type
+ENTITY_TYPE_TACTIC_MAPPING = {
+    'host': ['TA0002', 'TA0003', 'TA0004', 'TA0005', 'TA0007'],
+    'user': ['TA0001', 'TA0003', 'TA0004', 'TA0006', 'TA0008'],
+    'network': ['TA0001', 'TA0011', 'TA0010', 'TA0008']
 }
 
 def load_config():
@@ -119,13 +140,17 @@ def get_technique_details(technique_id: str) -> Dict[str, Any]:
     }
 
 def map_features_to_techniques(features: Dict[str, float], 
-                               prediction_score: float) -> List[str]:
+                               prediction_score: float,
+                               event_type: str = None,
+                               entity_type: str = None) -> List[str]:
     """
     Map feature values to potential MITRE ATT&CK techniques based on anomaly detection.
     
     Args:
         features: Dictionary of feature names and their values
         prediction_score: The overall prediction score from the model
+        event_type: Optional event type for more specific mapping
+        entity_type: Optional entity type for more specific mapping
         
     Returns:
         List of technique IDs that match the anomalous features
@@ -135,9 +160,31 @@ def map_features_to_techniques(features: Dict[str, float],
     
     techniques = set()
     
+    # Map based on anomalous features
     for feature_name, value in features.items():
-        if feature_name in FEATURE_TECHNIQUE_MAPPING and value >= ANOMALY_THRESHOLDS.get(feature_name, 0.7):
+        if feature_name in FEATURE_TECHNIQUE_MAPPING and value >= ANOMALY_THRESHOLDS.get(feature_name, 0.6):
             techniques.update(FEATURE_TECHNIQUE_MAPPING[feature_name])
+    
+    # Add techniques based on event type if available
+    if event_type and event_type in EVENT_TYPE_TECHNIQUE_MAPPING:
+        techniques.update(EVENT_TYPE_TECHNIQUE_MAPPING[event_type])
+    
+    # If we have an entity type, prioritize techniques based on relevant tactics
+    if entity_type and entity_type in ENTITY_TYPE_TACTIC_MAPPING:
+        relevant_tactics = ENTITY_TYPE_TACTIC_MAPPING[entity_type]
+        prioritized_techniques = set()
+        
+        # Add techniques that are associated with relevant tactics
+        for technique_id in techniques:
+            if technique_id in TECHNIQUES:
+                tactic_ids = TECHNIQUES[technique_id]['tactic_ids']
+                if any(tactic_id in relevant_tactics for tactic_id in tactic_ids):
+                    prioritized_techniques.add(technique_id)
+        
+        # If we found prioritized techniques, use those
+        # Otherwise, fall back to all identified techniques
+        if prioritized_techniques:
+            return list(prioritized_techniques)
     
     return list(techniques)
 
@@ -151,10 +198,30 @@ def enrich_alert_with_mitre_attack(alert: Dict[str, Any]) -> Dict[str, Any]:
     Returns:
         Enriched alert with MITRE ATT&CK information
     """
+    # Add debug logging
+    logging.info(f"Enriching alert with MITRE ATT&CK: {alert.get('entity')}, detection_type: {alert.get('detection_type')}")
+    
     features = alert.get('features', {})
     prediction_score = alert.get('prediction_score', 0)
+    detection_type = alert.get('detection_type', '')
+    entity = alert.get('entity', 'unknown')
+    entity_type = alert.get('entity_type', 'host')
     
-    technique_ids = map_features_to_techniques(features, prediction_score)
+    # Extract event type if available (especially for behavioral analytics alerts)
+    event_type = None
+    if 'event_type' in alert:
+        event_type = alert['event_type']
+        logging.info(f"Found event_type in alert: {event_type}")
+    
+    # Map features to techniques with additional context
+    technique_ids = map_features_to_techniques(
+        features, 
+        prediction_score,
+        event_type=event_type,
+        entity_type=entity_type
+    )
+    
+    # Get detailed information for each technique
     techniques = [get_technique_details(tid) for tid in technique_ids]
     
     # Group techniques by tactics
@@ -179,6 +246,23 @@ def enrich_alert_with_mitre_attack(alert: Dict[str, Any]) -> Dict[str, Any]:
         'techniques': techniques,
         'tactics': list(tactics.values())
     }
+    
+    # Add confidence level for behavioral analytics alerts
+    if detection_type == 'behavioral_analytics':
+        # Calculate confidence based on anomaly score and number of anomalous features
+        anomalous_features_count = sum(1 for _, value in features.items() 
+                                      if value >= ANOMALY_THRESHOLDS.get(_, 0.6))
+        confidence = min(0.9, (prediction_score * 0.7) + (anomalous_features_count * 0.05))
+        
+        enriched_alert['mitre_attack']['confidence'] = round(confidence, 2)
+    
+    # Log the result
+    if techniques:
+        logging.info(f"Identified {len(techniques)} MITRE ATT&CK techniques for {entity}")
+        for technique in techniques[:3]:  # Log first 3 techniques
+            logging.info(f"- {technique['id']}: {technique['name']}")
+    else:
+        logging.info(f"No MITRE ATT&CK techniques identified for {entity}")
     
     return enriched_alert
 

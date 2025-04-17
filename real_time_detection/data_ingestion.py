@@ -5,8 +5,9 @@ import numpy as np
 import os
 import yaml
 import threading
+import subprocess
 from datetime import datetime
-from typing import Dict, List, Any, Optional
+from typing import Dict, List, Any, Optional, Tuple
 from kafka import KafkaConsumer
 
 # Import internal modules
@@ -98,34 +99,59 @@ class DataIngestionManager:
             
             self.logger.info(f"Processing Kafka message: {data}")
             
-            # Extract features
-            feature_names = [
-                'network_traffic_volume_mean',
-                'number_of_logins_mean',
-                'number_of_failed_logins_mean',
-                'number_of_accessed_files_mean',
-                'number_of_email_sent_mean',
-                'cpu_usage_mean',
-                'memory_usage_mean',
-                'disk_io_mean',
-                'network_latency_mean',
-                'number_of_processes_mean'
-            ]
+            # Check if this is a simulation event
+            is_simulation = data.get('is_simulated', False) or data.get('source', {}).get('type', '') == 'simulation'
             
-            # Ensure all required features are present
-            features = []
-            for name in feature_names:
-                if name in data:
-                    features.append(float(data[name]))
-                else:
-                    self.logger.warning(f"Missing feature: {name}")
-                    features.append(0.0)  # Default value
+            # Extract event type and entity type for MITRE ATT&CK mapping
+            event_type = data.get('event_type', '')
+            entity_type = data.get('entity_type', 'host')
             
-            # Convert to numpy array for prediction
-            features_array = np.array(features).reshape(1, -1)
+            if is_simulation:
+                # For simulation events, extract features from event data
+                features, feature_names = self._extract_features_from_simulation_event(data)
+            else:
+                # For regular events, use standard features
+                feature_names = [
+                    'network_traffic_volume_mean',
+                    'number_of_logins_mean',
+                    'number_of_failed_logins_mean',
+                    'number_of_accessed_files_mean',
+                    'number_of_email_sent_mean',
+                    'cpu_usage_mean',
+                    'memory_usage_mean',
+                    'disk_io_mean',
+                    'network_latency_mean',
+                    'number_of_processes_mean'
+                ]
+                
+                # Ensure all required features are present
+                features = []
+                for name in feature_names:
+                    if name in data:
+                        features.append(float(data[name]))
+                    else:
+                        self.logger.warning(f"Missing feature: {name}")
+                        features.append(0.0)  # Default value
             
             # Make prediction
-            result = self.prediction_engine.predict(features_array, feature_names)
+            try:
+                # Convert features to a pandas DataFrame with proper feature names
+                import pandas as pd
+                features_df = pd.DataFrame([features], columns=feature_names)
+                
+                # Log the features for debugging
+                self.logger.debug(f"Prediction features: {dict(zip(feature_names, features))}")
+                
+                # Make prediction using DataFrame instead of numpy array
+                result = self.prediction_engine.predict(features_df)
+            except Exception as e:
+                self.logger.error(f"Error making predictions: {str(e)}")
+                import traceback
+                self.logger.error(traceback.format_exc())
+                # Create a basic alert for simulation events even if prediction fails
+                if is_simulation:
+                    return self._create_simulation_alert(data)
+                return None
             
             # Process alerts
             if result['alerts']:
@@ -167,6 +193,8 @@ class DataIngestionManager:
                     # Create a basic alert
                     alert = {
                         'entity': data.get('entity', 'unknown_entity'),
+                        'entity_type': entity_type,
+                        'event_type': event_type,
                         'timestamp': datetime.now().isoformat(),
                         'severity': 'Medium',
                         'prediction_score': 0.75,
@@ -242,17 +270,40 @@ class DataIngestionManager:
         for attempt in range(retries):
             try:
                 self.logger.info(f"Connecting to Kafka at {bootstrap_servers}, topic: {topic} (attempt {attempt+1}/{retries})")
-                consumer = KafkaConsumer(
-                    topic, 
-                    bootstrap_servers=bootstrap_servers,
-                    auto_offset_reset='earliest',  # Changed from 'latest' to ensure we get all messages
-                    enable_auto_commit=True,
-                    group_id='apt_detection_group',  # Added group_id for better consumer management
-                    value_deserializer=lambda m: json.loads(m.decode('utf-8')) if m else None,  # Added deserializer
-                    session_timeout_ms=30000,  # Increased timeout
-                    request_timeout_ms=40000,
-                    consumer_timeout_ms=60000
-                )
+                
+                # Try to create the consumer
+                try:
+                    consumer = KafkaConsumer(
+                        topic, 
+                        bootstrap_servers=bootstrap_servers,
+                        auto_offset_reset='earliest',  # Changed from 'latest' to ensure we get all messages
+                        enable_auto_commit=True,
+                        group_id='apt_detection_group',  # Added group_id for better consumer management
+                        value_deserializer=lambda m: json.loads(m.decode('utf-8')) if m else None,  # Added deserializer
+                        session_timeout_ms=30000,  # Increased timeout
+                        request_timeout_ms=40000,
+                        consumer_timeout_ms=60000
+                    )
+                except Exception as consumer_error:
+                    error_message = str(consumer_error)
+                    self.logger.error(f"Error creating Kafka consumer: {error_message}")
+                    
+                    # Check for cluster ID mismatch error
+                    if "Invalid cluster.id" in error_message:
+                        self.logger.warning("Detected Kafka cluster ID mismatch. Cleaning up Kafka logs...")
+                        if self._cleanup_kafka_logs():
+                            self.logger.info("Kafka logs cleaned up. Restarting Kafka...")
+                            if self._restart_kafka():
+                                self.logger.info("Kafka restarted successfully. Retrying connection...")
+                                time.sleep(5)  # Wait for Kafka to initialize
+                                continue
+                    
+                    # For other errors, just wait and retry
+                    time.sleep(5)
+                    continue
+                
+                # Ensure topic exists
+                self._ensure_topic_exists(topic, bootstrap_servers)
                 
                 self.logger.info("Connected to Kafka, waiting for messages...")
                 
@@ -299,6 +350,415 @@ class DataIngestionManager:
             self.logger.error("Failed to connect to Kafka after several retries")
             # Create a sample alert to indicate Kafka connection failure
             self._create_kafka_connection_failure_alert()
+    
+    def _cleanup_kafka_logs(self) -> bool:
+        """
+        Clean up Kafka logs to resolve cluster ID mismatch.
+        
+        Returns:
+            True if cleanup was successful, False otherwise
+        """
+        try:
+            # Stop Kafka and ZooKeeper if they're running
+            self._stop_kafka_and_zookeeper()
+            
+            # Remove Kafka logs
+            kafka_logs_dir = "/tmp/kafka-logs"
+            zookeeper_data_dir = "/tmp/zookeeper"
+            
+            if os.path.exists(kafka_logs_dir):
+                self.logger.info(f"Removing Kafka logs directory: {kafka_logs_dir}")
+                subprocess.run(["rm", "-rf", kafka_logs_dir], check=True)
+            
+            if os.path.exists(zookeeper_data_dir):
+                self.logger.info(f"Removing ZooKeeper data directory: {zookeeper_data_dir}")
+                subprocess.run(["rm", "-rf", zookeeper_data_dir], check=True)
+            
+            return True
+        except Exception as e:
+            self.logger.error(f"Error cleaning up Kafka logs: {str(e)}")
+            return False
+    
+    def _stop_kafka_and_zookeeper(self) -> None:
+        """Stop Kafka and ZooKeeper servers if they're running."""
+        try:
+            # Find Kafka installation directory - use absolute path
+            kafka_dir = None
+            current_dir = os.getcwd()
+            
+            # Try direct path first
+            if os.path.exists(os.path.join(current_dir, "kafka_2.13-3.8.0")):
+                kafka_dir = os.path.join(current_dir, "kafka_2.13-3.8.0")
+            # Try parent directory
+            elif os.path.exists(os.path.join(os.path.dirname(current_dir), "kafka_2.13-3.8.0")):
+                kafka_dir = os.path.join(os.path.dirname(current_dir), "kafka_2.13-3.8.0")
+            # Try relative paths as fallback
+            else:
+                for path in ["kafka_2.13-3.8.0", "../kafka_2.13-3.8.0", "../../kafka_2.13-3.8.0"]:
+                    if os.path.exists(path):
+                        kafka_dir = os.path.abspath(path)
+                        break
+            
+            if kafka_dir:
+                self.logger.info(f"Found Kafka installation at {kafka_dir}")
+                
+                # Stop Kafka
+                kafka_stop_script = os.path.join(kafka_dir, "bin", "kafka-server-stop.sh")
+                if os.path.exists(kafka_stop_script):
+                    self.logger.info("Stopping Kafka server...")
+                    # Use shell=True to ensure proper execution in different environments
+                    kafka_stop_command = f"{kafka_stop_script}"
+                    self.logger.info(f"Executing: {kafka_stop_command}")
+                    subprocess.run(kafka_stop_command, shell=True, check=False)
+                
+                # Stop ZooKeeper
+                zk_stop_script = os.path.join(kafka_dir, "bin", "zookeeper-server-stop.sh")
+                if os.path.exists(zk_stop_script):
+                    self.logger.info("Stopping ZooKeeper server...")
+                    # Use shell=True to ensure proper execution in different environments
+                    zk_stop_command = f"{zk_stop_script}"
+                    self.logger.info(f"Executing: {zk_stop_command}")
+                    subprocess.run(zk_stop_command, shell=True, check=False)
+                
+                # Wait for processes to stop
+                self.logger.info("Waiting for Kafka and ZooKeeper to stop...")
+                time.sleep(10)
+                
+                # Check if Kafka is still running
+                try:
+                    import socket
+                    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                    s.settimeout(1)
+                    result = s.connect_ex(('localhost', 9092))
+                    s.close()
+                    if result == 0:
+                        self.logger.warning("Kafka is still running on port 9092 after stop command")
+                    else:
+                        self.logger.info("Confirmed Kafka is no longer running on port 9092")
+                except Exception as e:
+                    self.logger.error(f"Error checking Kafka port: {str(e)}")
+            else:
+                self.logger.error("Kafka installation directory not found")
+                # Try to find Kafka in common locations
+                self.logger.info("Searching for Kafka in common locations...")
+                for path in ["/opt/kafka", "/usr/local/kafka", "/home/localhost/kafka"]:
+                    if os.path.exists(path):
+                        self.logger.info(f"Found potential Kafka installation at {path}")
+        except Exception as e:
+            self.logger.error(f"Error stopping Kafka and ZooKeeper: {str(e)}")
+            import traceback
+            self.logger.error(traceback.format_exc())
+    
+    def _restart_kafka(self) -> bool:
+        """
+        Restart Kafka and ZooKeeper servers.
+        
+        Returns:
+            True if restart was successful, False otherwise
+        """
+        try:
+            # Find Kafka installation directory - use absolute path
+            kafka_dir = None
+            current_dir = os.getcwd()
+            
+            # Try direct path first
+            if os.path.exists(os.path.join(current_dir, "kafka_2.13-3.8.0")):
+                kafka_dir = os.path.join(current_dir, "kafka_2.13-3.8.0")
+            # Try parent directory
+            elif os.path.exists(os.path.join(os.path.dirname(current_dir), "kafka_2.13-3.8.0")):
+                kafka_dir = os.path.join(os.path.dirname(current_dir), "kafka_2.13-3.8.0")
+            # Try relative paths as fallback
+            else:
+                for path in ["kafka_2.13-3.8.0", "../kafka_2.13-3.8.0", "../../kafka_2.13-3.8.0"]:
+                    if os.path.exists(path):
+                        kafka_dir = os.path.abspath(path)
+                        break
+            
+            if kafka_dir:
+                self.logger.info(f"Found Kafka installation at {kafka_dir}")
+                
+                # Start ZooKeeper with full path
+                zk_start_script = os.path.join(kafka_dir, "bin", "zookeeper-server-start.sh")
+                zk_config = os.path.join(kafka_dir, "config", "zookeeper.properties")
+                
+                if os.path.exists(zk_start_script) and os.path.exists(zk_config):
+                    self.logger.info("Starting ZooKeeper server...")
+                    # Use shell=True to ensure proper execution in different environments
+                    zk_command = f"{zk_start_script} -daemon {zk_config}"
+                    self.logger.info(f"Executing: {zk_command}")
+                    subprocess.run(zk_command, shell=True, check=False)
+                    
+                    # Wait for ZooKeeper to initialize
+                    self.logger.info("Waiting for ZooKeeper to initialize...")
+                    time.sleep(10)
+                    
+                    # Start Kafka with full path
+                    kafka_start_script = os.path.join(kafka_dir, "bin", "kafka-server-start.sh")
+                    kafka_config = os.path.join(kafka_dir, "config", "server.properties")
+                    
+                    if os.path.exists(kafka_start_script) and os.path.exists(kafka_config):
+                        self.logger.info("Starting Kafka server...")
+                        # Use shell=True to ensure proper execution in different environments
+                        kafka_command = f"{kafka_start_script} -daemon {kafka_config}"
+                        self.logger.info(f"Executing: {kafka_command}")
+                        subprocess.run(kafka_command, shell=True, check=False)
+                        
+                        # Wait for Kafka to initialize
+                        self.logger.info("Waiting for Kafka to initialize...")
+                        time.sleep(15)
+                        
+                        # Verify Kafka is running by checking if port 9092 is open
+                        self.logger.info("Verifying Kafka is running...")
+                        for _ in range(5):  # Try 5 times
+                            try:
+                                import socket
+                                s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                                s.settimeout(1)
+                                result = s.connect_ex(('localhost', 9092))
+                                s.close()
+                                if result == 0:
+                                    self.logger.info("Kafka is running on port 9092")
+                                    return True
+                                else:
+                                    self.logger.warning("Kafka not yet running on port 9092, waiting...")
+                                    time.sleep(3)
+                            except Exception as e:
+                                self.logger.error(f"Error checking Kafka port: {str(e)}")
+                                time.sleep(3)
+                        
+                        self.logger.warning("Could not verify Kafka is running, but continuing anyway")
+                        return True
+                    else:
+                        self.logger.error(f"Kafka start script or config not found at {kafka_start_script} or {kafka_config}")
+                else:
+                    self.logger.error(f"ZooKeeper start script or config not found at {zk_start_script} or {zk_config}")
+            else:
+                self.logger.error("Kafka installation directory not found")
+                # Try to find Kafka in common locations
+                self.logger.info("Searching for Kafka in common locations...")
+                for path in ["/opt/kafka", "/usr/local/kafka", "/home/localhost/kafka"]:
+                    if os.path.exists(path):
+                        self.logger.info(f"Found potential Kafka installation at {path}")
+            
+            return False
+        except Exception as e:
+            self.logger.error(f"Error restarting Kafka: {str(e)}")
+            import traceback
+            self.logger.error(traceback.format_exc())
+            return False
+    
+    def _ensure_topic_exists(self, topic: str, bootstrap_servers: str) -> None:
+        """
+        Ensure that the Kafka topic exists.
+        
+        Args:
+            topic: Kafka topic name
+            bootstrap_servers: Kafka bootstrap servers
+        """
+        try:
+            # Find Kafka installation directory - use absolute path
+            kafka_dir = None
+            current_dir = os.getcwd()
+            
+            # Try direct path first
+            if os.path.exists(os.path.join(current_dir, "kafka_2.13-3.8.0")):
+                kafka_dir = os.path.join(current_dir, "kafka_2.13-3.8.0")
+            # Try parent directory
+            elif os.path.exists(os.path.join(os.path.dirname(current_dir), "kafka_2.13-3.8.0")):
+                kafka_dir = os.path.join(os.path.dirname(current_dir), "kafka_2.13-3.8.0")
+            # Try relative paths as fallback
+            else:
+                for path in ["kafka_2.13-3.8.0", "../kafka_2.13-3.8.0", "../../kafka_2.13-3.8.0"]:
+                    if os.path.exists(path):
+                        kafka_dir = os.path.abspath(path)
+                        break
+            
+            if kafka_dir:
+                # Create topic if it doesn't exist
+                kafka_topics_script = os.path.join(kafka_dir, "bin", "kafka-topics.sh")
+                if os.path.exists(kafka_topics_script):
+                    # Check if topic exists
+                    self.logger.info(f"Checking if Kafka topic exists: {topic}")
+                    check_cmd = f"{kafka_topics_script} --list --bootstrap-server {bootstrap_servers}"
+                    self.logger.info(f"Executing: {check_cmd}")
+                    result = subprocess.run(check_cmd, shell=True, capture_output=True, text=True, check=False)
+                    
+                    if result.returncode != 0:
+                        self.logger.warning(f"Error checking Kafka topics: {result.stderr}")
+                        return
+                    
+                    topics = result.stdout.strip().split("\n")
+                    
+                    if topic not in topics:
+                        self.logger.info(f"Creating Kafka topic: {topic}")
+                        create_cmd = f"{kafka_topics_script} --create --topic {topic} --bootstrap-server {bootstrap_servers} --partitions 1 --replication-factor 1"
+                        self.logger.info(f"Executing: {create_cmd}")
+                        create_result = subprocess.run(create_cmd, shell=True, capture_output=True, text=True, check=False)
+                        
+                        if create_result.returncode == 0:
+                            self.logger.info(f"Kafka topic created: {topic}")
+                        else:
+                            self.logger.error(f"Error creating Kafka topic: {create_result.stderr}")
+                    else:
+                        self.logger.info(f"Kafka topic already exists: {topic}")
+                else:
+                    self.logger.error(f"Kafka topics script not found at {kafka_topics_script}")
+            else:
+                self.logger.error("Kafka installation directory not found")
+        except Exception as e:
+            self.logger.error(f"Error ensuring topic exists: {str(e)}")
+            import traceback
+            self.logger.error(traceback.format_exc())
+    
+    def _extract_features_from_simulation_event(self, data: Dict[str, Any]) -> Tuple[List[float], List[str]]:
+        """
+        Extract features from a simulation event.
+        
+        Args:
+            data: Simulation event data
+            
+        Returns:
+            Tuple of (list of feature values, list of feature names)
+        """
+        # Define feature names - these must match exactly what the model expects
+        feature_names = [
+            'network_traffic_volume_mean',
+            'number_of_logins_mean',
+            'number_of_failed_logins_mean',
+            'number_of_accessed_files_mean',
+            'number_of_email_sent_mean',
+            'cpu_usage_mean',
+            'memory_usage_mean',
+            'disk_io_mean',
+            'network_latency_mean',
+            'number_of_processes_mean'
+        ]
+        
+        # Initialize features with default values
+        features = [0.0] * len(feature_names)
+        
+        # Extract features based on event type
+        event_type = data.get('event_type', '')
+        
+        if event_type == 'network_connection':
+            # Network connection event
+            features[0] = float(data.get('bytes_sent', 0)) / 10000.0  # Normalize network traffic
+            features[8] = float(data.get('connection_duration', 0)) / 300.0  # Normalize latency
+            
+            # Check for suspicious destination ports
+            suspicious_ports = [22, 3389, 445, 1433, 3306, 5432, 8080, 8443]
+            if data.get('destination_port') in suspicious_ports:
+                features[0] += 0.3  # Increase network traffic score
+        
+        elif event_type == 'process':
+            # Process event
+            features[9] = 0.5  # Base process activity
+            
+            # Check for suspicious process names
+            suspicious_processes = ['cmd.exe', 'powershell.exe', 'bash', 'sh', 'python', 'nc', 'nmap']
+            if any(proc in data.get('process_name', '') for proc in suspicious_processes):
+                features[9] += 0.3  # Increase process score
+            
+            # Check for suspicious command lines
+            if 'command_line' in data:
+                cmd = data['command_line'].lower()
+                if any(term in cmd for term in ['password', 'secret', 'admin', 'sudo', 'wget', 'curl']):
+                    features[9] += 0.2  # Increase process score
+        
+        elif event_type == 'authentication':
+            # Authentication event
+            if data.get('authentication_status') == 'success':
+                features[1] = 0.5  # Login activity
+            else:
+                features[2] = 0.7  # Failed login (higher score)
+        
+        elif event_type == 'file':
+            # File event
+            features[3] = 0.5  # File access activity
+            
+            # Check for suspicious file operations
+            if data.get('action') in ['created', 'modified', 'deleted']:
+                features[3] += 0.2  # Increase file activity score
+            
+            # Check for suspicious file extensions
+            suspicious_extensions = ['.exe', '.dll', '.sh', '.bat', '.ps1', '.py']
+            if any(ext in data.get('file_extension', '') for ext in suspicious_extensions):
+                features[3] += 0.3  # Increase file activity score
+        
+        # Add severity as a general indicator
+        severity = data.get('severity', 'Low')
+        severity_score = {'Low': 0.2, 'Medium': 0.5, 'High': 0.8, 'Critical': 1.0}.get(severity, 0.2)
+        
+        # Adjust all features based on severity
+        for i in range(len(features)):
+            features[i] = min(1.0, features[i] + (severity_score * 0.2))
+        
+        # Ensure all features are float type
+        features = [float(f) for f in features]
+        
+        self.logger.debug(f"Extracted features for {event_type} event: {dict(zip(feature_names, features))}")
+        
+        return features, feature_names
+    
+    def _create_simulation_alert(self, data: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Create an alert from a simulation event when prediction fails.
+        
+        Args:
+            data: Simulation event data
+            
+        Returns:
+            Alert dictionary
+        """
+        # Determine severity based on event type and data
+        event_type = data.get('event_type', '')
+        severity = data.get('severity', 'Low')
+        
+        # Increase severity for certain event types
+        if event_type == 'network_connection' and data.get('destination_port') in [22, 3389, 445]:
+            severity = 'Medium'
+        elif event_type == 'process' and any(proc in data.get('process_name', '') for proc in ['cmd.exe', 'powershell.exe']):
+            severity = 'Medium'
+        elif event_type == 'authentication' and data.get('authentication_status') == 'failure':
+            severity = 'Medium'
+        
+        # Create alert
+        alert = {
+            'entity': data.get('entity', 'unknown_entity'),
+            'entity_type': data.get('entity_type', 'host'),
+            'timestamp': data.get('timestamp', datetime.now().isoformat()),
+            'severity': severity,
+            'prediction_score': 0.7,
+            'detection_type': 'simulation',
+            'event_type': event_type,
+            'source': data.get('source', {'type': 'simulation'}),
+            'message': f"Simulation event detected: {event_type}"
+        }
+        
+        # Add event-specific details
+        if event_type == 'network_connection':
+            alert['details'] = {
+                'source_ip': data.get('source_ip', ''),
+                'destination_ip': data.get('destination_ip', ''),
+                'destination_port': data.get('destination_port', ''),
+                'protocol': data.get('protocol', '')
+            }
+        elif event_type == 'process':
+            alert['details'] = {
+                'process_name': data.get('process_name', ''),
+                'command_line': data.get('command_line', '')
+            }
+        elif event_type == 'authentication':
+            alert['details'] = {
+                'authentication_status': data.get('authentication_status', ''),
+                'user_name': data.get('user_name', '')
+            }
+        
+        # Store the alert
+        self.store_alert(alert)
+        self.logger.info(f"Created simulation alert for {event_type} event with severity: {severity}")
+        
+        return alert
     
     def _create_kafka_connection_failure_alert(self):
         """Create an alert to indicate Kafka connection failure."""
@@ -358,15 +818,23 @@ class DataIngestionManager:
                         # Create alert from anomaly
                         alert = {
                             'entity': anomaly['entity'],
+                            'entity_type': anomaly.get('entity_type', 'host'),
+                            'event_type': anomaly.get('event_type', ''),
                             'timestamp': anomaly['timestamp'],
                             'severity': anomaly['severity'],
                             'anomaly_score': anomaly['anomaly_score'],
+                            'prediction_score': anomaly['anomaly_score'],  # Use anomaly score as prediction score
                             'features': anomaly['features'],
+                            'detection_type': 'behavioral_analytics',
                             'source': {
                                 'type': 'behavioral_analytics',
                                 'timestamp': datetime.now().isoformat()
                             }
                         }
+                        
+                        # Enrich with MITRE ATT&CK information
+                        from .mitre_attack_mapping import enrich_alert_with_mitre_attack
+                        alert = enrich_alert_with_mitre_attack(alert)
                         
                         # Store alert
                         self.store_alert(alert)
